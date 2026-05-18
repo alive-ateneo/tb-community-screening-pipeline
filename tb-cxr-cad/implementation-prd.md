@@ -12,8 +12,9 @@ Prototype engineering doc for the paper at `ijacsa-paper.tex`. Scope: build the 
 CXR (DICOM/PNG)
    │
    ▼
-[1] Quality Gate ──► reject / manual-review / warning flag
-   │ (if pass)
+[1] Quality Gate ──► acceptable / flagged / rejected
+   │   (step 0 = modality gate: is this a chest radiograph at all?)
+   │ (proceed only if acceptable or flagged; rejected short-circuits here)
    ▼
 [2] TB Detector (Faster R-CNN on TBX11K)
    │   emits: image-level score s, List<(bbox, class, p)>, feature vector φ
@@ -81,56 +82,89 @@ Everything above the UI runs in one Python process with a simple FastAPI endpoin
 ### Auxiliary set — PadChest (subset)
 - For the fallback view classifier in the quality gate. We only need `Projection` labels (PA / AP / L) — ~160k images labeled. Can get by with 10k-sample subset.
 
+### Non-CXR negative set — for the modality gate + OOD validation
+- ~1–2k images that are *not* frontal CXRs: other X-ray body parts (abdomen, extremity, pelvis — e.g., MURA, NIH bone), other modalities (brain/spine MRI/CT slices — e.g., a few hundred from public sets), natural images (ImageNet subset), and document/screenshot scans.
+- Use: (a) train `cxr_classifier` (§3 quality gate); (b) **validate** the modality gate and the Mahalanobis `MAHAL_THRESH` as an actual held-out non-CXR test set — without this, non-CXR rejection is assumed, not measured.
+- License: all public, research use.
+
 ### Calibration / OOD fit
-- Use the TBX11K validation split (1,800 images). Fit temperature T (Guo 2017) and Mahalanobis class-conditional mean μ_c, shared covariance Σ on this set.
+- Use the TBX11K validation split (1,800 images). Fit temperature T (Guo 2017) and Mahalanobis class-conditional mean μ_c, shared covariance Σ on this set. Report modality-gate precision/recall and Mahalanobis far-OOD AUROC on the non-CXR negative set above.
 
 ---
 
 ## [3] Quality Gate
 
+### Three-class output
+
+The gate emits exactly one of three statuses. Everything downstream routes on these three only.
+
+| Status | Meaning | Pipeline action | Examples |
+|---|---|---|---|
+| `ACCEPTABLE` | Diagnostic-quality frontal CXR. | Run full pipeline normally. | Clean PA or AP chest radiograph, both lungs segmented, adequate inspiration/FOV, sharp, normal contrast. |
+| `FLAGGED` | Genuine frontal CXR, but degraded or off-nominal. Still analyzable, result must not stand alone. | Run detector + explanation, but **deferral is forced to `UNCERTAIN`** (human reads, prediction shown as low-confidence). | Rotated/off-center patient, mild motion blur, low contrast/under- or over-exposed, AP portable when PA preferred, mildly clipped lung fields, near-OOD features (plausibly chest but far from TBX11K distribution — pediatric, post-surgical hardware, large effusion obscuring a lung). |
+| `REJECTED` | Cannot produce a valid TB result from this image. | **Detector never runs.** Return a refusal with a `reason` code; ask for the correct/repeat image. | Not a chest radiograph at all (abdominal/extremity X-ray, brain/spine MRI/CT, photo of a person or object, scanned document/screenshot); lateral-only view; lungs absent or severely truncated; image all-black/saturated/corrupt; far-OOD per modality gate. |
+
+`REJECTED` is a single routing class but carries a `reason` ∈ {`not_cxr`, `wrong_body_part`, `wrong_view`, `lungs_absent`, `insufficient_fov`, `unreadable`} so the UI can show an actionable message ("This does not look like a chest X-ray — please upload a frontal CXR") instead of a generic error.
+
 ### Implementation (hybrid, rule-based + learned components)
 
 ```python
-def quality_gate(img, dicom_meta) -> QualityStatus:
+class QualityStatus(Enum):
+    ACCEPTABLE = "acceptable"  # run full pipeline
+    FLAGGED    = "flagged"     # run pipeline, but force deferral → UNCERTAIN
+    REJECTED   = "rejected"    # do not analyze; request correct / repeat image
+
+def quality_gate(img, dicom_meta) -> tuple[QualityStatus, str | None]:
+    # 0. Modality / anatomy gate — "is this a chest radiograph at all?"
+    #    Tiny binary CXR vs. not-CXR classifier. Runs FIRST and on every
+    #    input, because every CXR-specific component below (view classifier,
+    #    txrv segmentation, the TB detector, Mahalanobis μ_c/Σ) was trained
+    #    only on CXRs and has undefined — often confidently wrong — behavior
+    #    on a non-CXR image. This is the explicit non-CXR check the rest of
+    #    the pipeline previously only approximated by accident.
+    if cxr_classifier(img).p_cxr < CXR_MIN_PROB:
+        return REJECTED, "not_cxr"
+
     # 1. DICOM checks (short-circuit if present)
     if dicom_meta:
-        if dicom_meta.ViewPosition not in {"PA", "AP"}:
-            return MANUAL_REVIEW  # lateral or unknown
         if dicom_meta.BodyPartExamined and "CHEST" not in dicom_meta.BodyPartExamined.upper():
-            return MANUAL_REVIEW
+            return REJECTED, "wrong_body_part"
+        if dicom_meta.ViewPosition not in {"PA", "AP"}:
+            return REJECTED, "wrong_view"  # lateral/unknown — PA/AP detector can't score it
 
-    # 2. View classifier fallback for JPEGs
+    # 2. View classifier fallback for non-DICOM uploads (PNG/JPEG carry no metadata)
     if not dicom_meta:
-        view = view_classifier(img)  # PadChest-trained ResNet18
+        view = view_classifier(img)  # PadChest-trained ResNet18, PA/AP/L
         if view == "LATERAL":
-            return MANUAL_REVIEW
+            return REJECTED, "wrong_view"
 
     # 3. Anatomical sanity via torchxrayvision
     masks = txrv_segment(img)  # 14-class PSPNet, pretrained
     left, right = masks["Left Lung"], masks["Right Lung"]
     if left.sum() < MIN_LUNG_PX or right.sum() < MIN_LUNG_PX:
-        return MANUAL_REVIEW  # likely non-chest or severely cropped
+        return REJECTED, "lungs_absent"        # not chest / severely truncated
     fov_ratio = (left.sum() + right.sum()) / img_size
     if fov_ratio < 0.15:
-        return REPEAT_RECOMMENDED
+        return REJECTED, "insufficient_fov"    # repeat acquisition needed
     centroid_offset = abs(lung_centroid_x(left, right) - img_center_x) / img_w
     if centroid_offset > 0.15:
-        return BORDERLINE  # rotation/positioning
+        return FLAGGED, "rotation_positioning"
 
     # 4. Classical stats
     blur = cv2.Laplacian(img, CV_64F).var()
     if blur < BLUR_THRESH:
-        return BORDERLINE
+        return FLAGGED, "blur"
     p1, p99 = np.percentile(img, [1, 99])
     if (p99 - p1) < CONTRAST_MIN:
-        return BORDERLINE
+        return FLAGGED, "low_contrast"
 
-    return ACCEPTABLE
+    return ACCEPTABLE, None
 ```
 
-Thresholds (`MIN_LUNG_PX`, `BLUR_THRESH`, `CONTRAST_MIN`, etc.) tuned on TBX11K train split — held out from detector training for this purpose.
+Thresholds (`CXR_MIN_PROB`, `MIN_LUNG_PX`, `BLUR_THRESH`, `CONTRAST_MIN`, etc.) tuned on the TBX11K train split (held out from detector training) plus the non-CXR negative set (§2) for `CXR_MIN_PROB`.
 
 ### Dependencies
+- `cxr_classifier` — tiny binary ResNet18 (CXR vs. not-CXR), trained on TBX11K/PadChest positives vs. the non-CXR negative set (§2). Far-OOD separation (radiograph vs. natural image / other modality) is easy; a few hundred images per side is enough. Output `p_cxr` ∈ [0,1].
 - `torchxrayvision` — `pip install torchxrayvision`. Ships pretrained PSPNet weights.
 - OpenCV for classical stats.
 - Tiny ResNet18 (~2M params) fine-tuned on PadChest projection labels.
@@ -203,12 +237,18 @@ if mahalanobis_score(φ(x)) > MAHAL_THRESH:
 ### Final decision
 
 ```python
-if quality_status in {BORDERLINE, MANUAL_REVIEW, REPEAT_RECOMMENDED}:
+# REJECTED never reaches here — the detector is not run, the pipeline
+# short-circuits at the quality gate and returns the refusal + reason code.
+assert quality_status in {ACCEPTABLE, FLAGGED}
+
+if quality_status == FLAGGED:
     return UNCERTAIN
 if mahalanobis_score > thresh:
-    return UNCERTAIN
+    return UNCERTAIN  # second-line OOD net for near-OOD the modality gate passes
 return deferral_decision(p_cal, threshold, margin)
 ```
+
+The modality gate (quality step 0) and Mahalanobis are complementary, not redundant: the gate cheaply rejects *far*-OOD (non-CXR) before any CXR-specific model runs; Mahalanobis catches *near*-OOD (an unusual but genuine CXR that passed the gate) on detector features.
 
 ### Not doing
 - SelectiveNet — requires retraining with a reject head.
@@ -404,6 +444,8 @@ Risk buffer: weeks 1 and 3 are the technical long poles. If Week 1 slips (traini
 6. **Outcome-side monitoring metrics (confirmed TB yield, cascade completion) require a real deployment.** For the prototype paper, we describe the metric and pipeline; we don't populate it. Use simulated/retrospective TBX11K-test-set evaluation as stand-in.
 
 7. **Bbox-to-zone assignment can fail** when box centroid falls outside segmented lung (e.g., pleural-based lesion extending into chest wall). Explanation module should skip these with a `location=unspecified` fallback, not crash.
+
+8. **Non-CXR input rejection depends on the modality gate generalizing.** The `cxr_classifier` is the only component explicitly trained to say "this is not a chest X-ray"; every other check (view classifier, txrv segmentation, Mahalanobis) was fit on CXRs and only rejects non-CXR input incidentally. Far-OOD (cat photo, abdominal film) is the easy regime, but adversarial or borderline cases (chest CT scout, neonatal CXR, heavily annotated teaching image) may slip through to `FLAGGED`/`UNCERTAIN` rather than `REJECTED`. Mitigation: the non-CXR negative set (§2) makes this measurable rather than assumed; report gate precision/recall in the paper and state residual risk as an explicit limitation.
 
 ---
 
