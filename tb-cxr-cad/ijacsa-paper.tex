@@ -66,7 +66,7 @@
 Irish Danielle Morales~\orcidlink{0009-0007-4409-5290},
 Ruben A. Saulog~\orcidlink{0009-0001-2103-6032} and
 Patricia Angela R. Abu~\orcidlink{0000-0002-8848-6644}}
-\IEEEauthorblockA{Department of Information Systems and Computer Science, Ateneo de Manila University, Quezon City, Philippines\\\\}}
+\IEEEauthorblockA{Department of Information Systems and Computer Science, Ateneo de Manila University, Quezon City, Philippines}}
 
 \maketitle
 
@@ -74,7 +74,7 @@ Patricia Angela R. Abu~\orcidlink{0000-0002-8848-6644}}
 % ABSTRACT
 % ============================================================
 \begin{abstract}
-Tuberculosis (TB) causes more deaths than any other infectious disease worldwide. However, high-burden countries are often short-staffed on radiologists to interpret chest X-rays for TB screening. Hence, computer-aided detection (CAD) systems for TB screening are in wide use. While TB detection models are highly accurate, several practical challenges repeatedly emerge when integrating these systems into clinical workflows. Commercial TB CAD systems often do not account for X-ray image quality, prioritization of abnormalities found, post-deployment monitoring, and clinical explanation of findings for interpreting radiologists. We present an academic prototype of a clinical workflow integration layer to address these issues. Its lead contribution is a clinically grounded LLM explanation module that describes model findings in natural language for radiologists, a feature not yet present in the commercial products we reviewed. Supporting modules add an input quality gate to assess X-ray image quality, a structured evidence interface to present findings, and a post-deployment monitoring dashboard. Alongside the workflow layer, we also develop and benchmark custom models for tuberculosis classification and localization. Our results show that ... (TODO).
+Tuberculosis (TB) causes more deaths than any other infectious disease worldwide. However, high-burden areas are often short-staffed on radiologists to interpret chest X-rays for TB screening. Hence, computer-aided detection (CAD) systems for TB screening are in wide use. While TB detection models are highly accurate, several practical challenges emerge when integrating these systems into clinical workflows. Commercial TB CAD systems often do not account for X-ray image quality, post-deployment monitoring, and explanation of findings in natural language for interpreting radiologists. We present a prototype of a clinical workflow integration layer to address these issues. Its lead contribution is a large language model explanation module that describes model findings in natural language for radiologists, a feature not yet present in the commercial products we reviewed. Supporting modules add an input quality gate to assess X-ray image quality, a structured evidence interface to present findings, and a post-deployment monitoring dashboard. Alongside the workflow layer, we also develop and benchmark custom models for tuberculosis classification and localization. Our results show that ... (TODO).
 % TODO: Add quantitative results summary once evaluation is complete.
 \end{abstract}
 
@@ -89,13 +89,11 @@ Tuberculosis; Computer-Aided Detection; Chest X-ray; Clinical Workflow; Medical 
 % ============================================================
 \section{Introduction}
 
-Tuberculosis (TB) is an airborne bacterial infection caused by \textit{Mycobacterium tuberculosis} that primarily affects the lungs. It spreads when an infected person coughs, sneezes, or speaks, releasing bacteria that others may inhale~\cite{pai2016tb}. TB is both preventable and curable, yet it causes more deaths than any other infectious disease worldwide \cite{who_global_tb_2024}. Low- and middle-income countries bear a disproportionate share of this burden, often compounded by limited access to diagnostics in rural areas, delayed presentation, and overburdened public health infrastructure~\cite{who_screening_2021}.
+Tuberculosis (TB) causes more deaths than any other infectious disease worldwide~\cite{who_global_tb_2024}. It is caused by airborne \textit{Mycobacterium tuberculosis} and primarily affects the lungs~\cite{pai2016tb}. Low- and middle-income countries bear a disproportionate share of the burden, compounded by limited access to diagnostics, delayed presentation, and overburdened health infrastructure~\cite{who_screening_2021}.
 
-Chest X-ray (CXR) is the most widely used imaging modality for TB screening~\cite{burrill2007tb_radiology}. In screening settings, CXR serves as a triage tool. Patients whose CXR show findings suggestive of TB are referred for bacteriological testing to confirm the presence of TB, typically through sputum smear microscopy or molecular assays. This two-stage workflow of TB CXR triage followed by laboratory confirmation is central to national TB control programs in high-burden countries~\cite{who_screening_2021}.
+Chest X-ray (CXR) is the most widely used triage modality for TB screening~\cite{burrill2007tb_radiology}. If TB is suspected, bacteriological testing (sputum smear or molecular assays) is conducted to confirm TB~\cite{who_screening_2021}. However, high-burden countries are often short-staffed on radiologists to interpret CXRs, especially in primary care and rural units where volumes are highest~\cite{who_screening_2021}. The shortage has driven the development of computer-aided detection (CAD) systems that flag CXRs suggestive of TB~\cite{who_cad_policy_2021}.
 
-High-burden countries are often short-staffed on radiologists to interpret CXRs for TB screening. This scarcity is especially of concern in primary care facilities and rural health units where screening volumes are highest~\cite{who_screening_2021}. This bottleneck has driven the development of computer-aided detection (CAD) systems that use medical imaging models to analyze CXR images and flag those suggestive of TB.
-
-Radiologist performance in TB screening has been demonstrated to agree with or improve with AI assistance. A 2024 reader study demonstrated that AI assistance raised physician diagnostic performance, measured by the area under the receiver operating characteristic curve, from 0.773 to 0.874. Non-radiologist physicians with AI assistance were also able to achieve results on par with trained radiologists~\cite{anderson2024deep}. In a real-world observational study, radiologists showed complete agreement with AI findings in 86.5\% of cases, with only 0.5\% of findings missed by the model~\cite{jones2021realworld}.
+Radiologists agree with AI findings on most cases, and AI assistance is found to improve radiologist performance. A reader study found that AI assistance raised physician AUC from 0.773 to 0.874 and enabled non-radiologists to match trained radiologists~\cite{anderson2024deep}. In real-world use, radiologists were in complete agreement with AI on 86.5\% of cases, with only 0.5\% of findings missed by the model~\cite{jones2021realworld}.
 
 \begin{table*}[!t]
 \label{tab:feature_comparison}
@@ -126,40 +124,35 @@ Explanation of findings in natural language &            &              &       
 
 \subsection{Maturity of TB CAD Systems}
 
-TB CAD systems have been endorsed by the World Health Organization (WHO). In 2021, WHO issued a policy recommendation supporting CAD as an alternative to human readers for TB screening~\cite{who_cad_policy_2021}. In 2025, the WHO Technical Advisory Group approved six commercial CAD products as meeting its performance standards for TB screening in individuals aged 15 years and older~\cite{who_cad_approval_2025}.
-
-Model performance of TB CAD systems have achieved diagnostic accuracy in range with WHO screening targets. A systematic review of machine learning for chest X-ray interpretation found strong diagnostic performance across a range of thoracic conditions, though it also noted limited prospective validation and real-world deployment evidence~\cite{ahmad2023systematic}. Several other studies find CAD systems approach WHO targets~\cite{scott2024tb_cad_africa}~\cite{khan2025tb_meta}. These indicate that the field has moved beyond achieving diagnostic accuracy into integrating TB CAD systems in routine clinical workflows.
+TB CAD systems have matured into routine clinical use. The World Health Organization (WHO) endorsed CAD as an alternative to human readers in 2021~\cite{who_cad_policy_2021}, and in 2025 approved six commercial products as meeting its TB screening performance standards~\cite{who_cad_approval_2025}. Reviews report model accuracy approaching WHO targets across populations~\cite{ahmad2023systematic, scott2024tb_cad_africa, khan2025tb_meta}, indicating that the field has moved beyond accuracy toward integrating TB CAD into routine clinical workflows.
 
 \subsection{Gaps in Clinical Workflow Integration}
 
-Despite strong detection performance, reviews of CXR AI consistently identify gaps between laboratory accuracy and clinical implementation. A review of practical AI in chest radiography found that only a small proportion of published studies are prospective or clinically embedded, and that workflow integration, local validation, and human factors remain under-studied~\cite{mongan2023review}. Hence, clinical expertise, usability, and implementation context remain essential even when model performance is strong~\cite{ahmad2023systematic, mongan2023review}. Real-world deployment studies demonstrate this gap as well. An implementation of qXR for TB screening in India identified barriers including software installation, workflow integration, network connectivity, and limited human resources for interpreting findings~\cite{vijayan2023india_tb_cad}. Another deployment study in Vietnam found only 47.3\% concordance between physician and CAD interpretations at three months~\cite{innes2023vietnam_tb_cad}, and early user interviews across multiple countries found that clinicians valued CAD most when it complemented rather than replaced clinical judgment~\cite{creswell2023user_perspectives_tb}. Usability testing of CXR AI in a simulated clinical workflow reported that users wanted clearer explanations of model findings and suggested the tool would be most useful for understaffed radiology departments, trainees, and non-radiologist physicians~\cite{cheung2022uai}. Several gaps emerge from the literature:
+Reviews and deployment studies consistently identify gaps between laboratory accuracy and clinical implementation. Only a small proportion of published CXR AI studies are prospective or clinically embedded, and workflow integration, local validation, and human factors remain under-studied~\cite{mongan2023review, ahmad2023systematic}. Field deployments report similar issues: an India deployment identified barriers in workflow, connectivity, and interpretation~\cite{vijayan2023india_tb_cad}, a Vietnam deployment showed only 47.3\% agreement between physician and CAD interpretations at three months~\cite{innes2023vietnam_tb_cad}, and clinicians across countries valued CAD most as a complement rather than a replacement~\cite{creswell2023user_perspectives_tb}. Usability testing further showed that users wanted clearer explanations of model findings~\cite{cheung2022uai}. Three concrete gaps emerge:
 
-\textbf{CXR image quality varies in real-world use.} CAD systems are trained on curated datasets. In contrast, in routine hospital use, images may be poorly positioned, clipped, rotated, underexposed, or photographed from analog film. Poor input quality can degrade performance, but most systems do not expose a user-facing quality assessment before inference~\cite{mongan2023review, degrave2021shortcut}.
+\textbf{CXR image quality varies in real-world use.} CAD systems are trained on curated datasets, but routine hospital images may be poorly positioned, clipped, underexposed, or photographed from analog film~\cite{nasser2023photographed}. Poor input quality degrades performance, yet most systems do not expose a user-facing quality assessment feature before inference~\cite{mongan2023review, degrave2021shortcut}.
 
-\textbf{Heatmaps for explaining model findings lack clinical utility.} All of the commercial CAD products reviewed in Table \ref{tab:product_comparison} provide heatmap overlays showing image regions that influenced the prediction. However, radiologist user studies report that heatmap-style saliency overlays are less intuitive and harder to read than localized, discrete findings~\cite{ihongbe2024xai_cxr}. A systematic review also found that saliency-based approaches often show low overlap with expert-identified regions of interest and do not convey the contextual reasoning clinicians use during diagnosis~\cite{chen2022xai_human_centered}. Alternative approaches, including textual descriptions and case-based reasoning, have been proposed as more clinically meaningful~\cite{borys2023xai_beyond_saliency}~\cite{siemens_llm_cxr_2023}.
+\textbf{Heatmaps for explaining model findings lack clinical utility.} All commercial CAD products in Table \ref{tab:product_comparison} provide heatmaps of regions that influenced the model's prediction. However, radiologist studies report that these are less intuitive than discrete localized findings~\cite{ihongbe2024xai_cxr}, often overlap poorly with expert-identified regions, and do not convey the contextual reasoning used during diagnosis~\cite{chen2022xai_human_centered}. Textual descriptions and case-based reasoning have been proposed as more clinically meaningful alternatives~\cite{borys2023xai_beyond_saliency, siemens_llm_cxr_2023}.
 
-\textbf{Post-deployment monitoring is often lacking.} A deployed system's performance may change due to population shifts, equipment changes, or software updates. The U.S. Food and Drug Administration (FDA) has identified data drift, concept drift, and model drift as risks to AI-enabled medical devices and has initiated research programs on proactive post-market monitoring~\cite{fda_postmarket}. Reviews note the need for ongoing monitoring, but this remains an operational gap in practice~\cite{mongan2023review}.
+\textbf{Post-deployment monitoring is often lacking.} Deployed performance may shift due to population, equipment, or software changes~\cite{finlayson2021shift}. The U.S. Food and Drug Administration has identified these as risks to AI-enabled medical devices and initiated research on proactive post-market monitoring~\cite{fda_postmarket}, but in practice this remains an operational gap~\cite{mongan2023review}.
 
 \subsection{Related Work}
 
-Academic prototypes have begun coupling detectors or image encoders with language models to provide natural language explanation of findings. Work from Siemens Healthineers, who also developed one of the commercial TB CAD systems compared against in this paper, couple a thoracic abnormality detector with a domain-adapted large language model to generate chest-X-ray findings~\cite{siemens_llm_cxr_2023}, although this functionality is not yet implemented in the corresponding commercial system. General medical vision-language models such as LLaVA-Med~\cite{li2023llava_med} and CXR-LLaVA~\cite{lee2024cxr_llava} demonstrate image-conditioned radiology text generation, and recent surveys catalogue the rapid growth of vision-language models for medical report generation and visual question answering~\cite{bazi2024vlm_review}. These remain research prototypes rather than features in deployed commercial systems.
+Academic prototypes have explored vision-language models to explain findings in natural language. Siemens Healthineers, who also developed one of the commercial TB CAD systems compared in this paper, pair a combined classification-localization model~\cite{ghesu2022ssl_medical} with a domain-adapted LLM to generate CXR findings~\cite{siemens_llm_cxr_2023}, although this feature is not yet in their commercial product. General medical vision-language models such as LLaVA-Med~\cite{li2023llava_med} and CXR-LLaVA~\cite{lee2024cxr_llava} demonstrate image-conditioned radiology text generation, and recent surveys catalogue the rapid growth of vision-language models for medical report generation~\cite{bazi2024vlm_review}. However, these remain research prototypes rather than features in deployed systems or commercial products.
 
-We reviewed seven commercial CAD products to compare features addressing common gaps in clinical workflow integration. Six of these are approved by WHO as meeting its performance standards for TB screening~: qXR v4.0 (Qure.ai), CAD4TB v7 (Delft Imaging), Lunit INSIGHT CXR v3.1, DrAid for TB screening v2.4.4–6 (VinBrain), Genki Edge v3.4.2 (Deeptek), and InferRead DR Chest v1.0.1.1 (Infervision)\cite{who_cad_approval_2025}. We additionally compare Siemens AI-Rad Companion, which has done relevant work on the gaps mentioned in this paper. Specifically, Siemens implements input-quality assessment, and has conducted research into language-based explanation of findings as discussed above (although the latter is not implemented in the commercial product).
-
-As Table~\ref{tab:product_comparison} summarizes, all products provide heatmap or overlay-based localization. However post-deployment monitoring is uncommon, input quality assessment is largely absent, and no product is known to explain model findings as natural-language clinical reasoning.
+We compare against seven commercial CAD products: six WHO-approved (qXR v4.0~\cite{qxr_docs}, CAD4TB v7~\cite{cad4tb_product}, Lunit INSIGHT CXR v3.1~\cite{lunit_product}, DrAid v2.4.4--6~\cite{draid_product}, Genki Edge v3.4.2~\cite{genki_product}, InferRead DR Chest v1.0.1.1~\cite{inferread_product})~\cite{who_cad_approval_2025} plus Siemens AI-Rad Companion~\cite{siemens_product}, which uniquely implements input quality assessment and has explored language-based explanation in research~\cite{siemens_llm_cxr_2023}. As Table~\ref{tab:product_comparison} summarizes, all provide heatmap localization, but post-deployment monitoring is uncommon, input quality assessment is largely absent, and no product is known to explain findings in natural language.
 
 \subsection{Scope and Contribution}
 
-This paper addresses gaps in integration into clinical workflows by presenting a prototype clinical workflow integration layer for TB CAD screening in CXRs. The contributions of this system are:
+This paper presents a prototype clinical workflow integration layer for TB CAD that targets the gaps above. Its contributions are:
 
 \begin{enumerate}
-    \item A \textbf{natural language explanation module} that generates natural-language descriptions of AI-detected findings, linking suspected abnormalities to localized visual evidence. This is the lead contribution.
+    \item A \textbf{natural language explanation module} (lead contribution) that describes AI-detected findings and suspected abnormalities with clinical grounding.
     \item An \textbf{input quality assessment module} that screens radiographs for acquisition defects before inference.
-    \item A \textbf{structured evidence interface} presenting the TB score, risk classification, quality status, and localized evidence in a compact clinical panel.
-    \item A \textbf{post-deployment monitoring dashboard} tracking system behavior over time.
+    \item A \textbf{post-deployment monitoring dashboard} tracking system behavior and performance over time.
 \end{enumerate}
 
-As a secondary contribution, we develop and benchmark several custom models for image-level classification and bounding-box localization.
+As a secondary contribution, we develop and benchmark custom models for classification (Section \ref{sec:tb_classification}) and localization  (Section \ref{sec:tb_localization}).
 
 % ============================================================
 % II. MATERIALS AND METHODS
@@ -173,22 +166,7 @@ As a secondary contribution, we develop and benchmark several custom models for 
     \label{fig:pipeline}
 \end{figure}
 
-The system processes a CXR through a sequential pipeline:
-
-\begin{enumerate}
-    \item \textbf{Image ingestion.} A digital chest radiograph (DICOM or standard image format) is received from the hospital imaging system or uploaded directly.
-    \item \textbf{Input quality assessment.} The image is evaluated for acquisition quality before diagnostic inference.
-    \item \textbf{TB classification.} If the image passes quality screening, it is processed by the TB scoring module, producing a continuous probability score and spatial activation maps.
-    \item \textbf{Multimodal explanation generation.} For classified cases, the system generates a natural-language explanation linking the predicted finding to localized visual evidence.
-    \item \textbf{Clinical interface rendering.} All outputs are presented in a structured evidence panel.
-    \item \textbf{Monitoring and logging.} Each case and its metadata are logged for the monitoring dashboard.
-\end{enumerate}
-
-% TODO: Add TB scan images (Figure 0)
-% TODO: Add system architecture diagram (Figure 1). tb0154
-% note: teal for both boxes chosen to avoid non-intuivitveness by colorblindness, and for better grayscale printing
-
-The following sections describe each component: input quality assessment (Section~\ref{sec:iqa}), tuberculosis classification (Section~\ref{sec:tb_classification}), tuberculosis localization (Section~\ref{sec:tb_localization}), and the multimodal explanation module (Section~\ref{sec:explanation}), followed by two non-evaluated components, the structured evidence interface (Section~\ref{sec:interface}) and the post-deployment monitoring dashboard (Section~\ref{sec:monitoring}).
+The system processes a CXR through a sequential pipeline described in Figure \ref{fig:pipeline}. A CXR (DICOM or standard image format) is ingested from the clinical imaging system or uploaded directly, then evaluated for acquisition quality before any diagnostic inference. Images passing quality screening are scored by the TB classification module. For cases flagged as TB, localization (object detection) is done to detect active and latent TB. Findings are passed to a module that generates a natural language description of the finding based in clinical context. Outputs render in a structured evidence panel, and each case is logged for post-deployment monitoring.
 
 % ============================================================
 % INPUT QUALITY ASSESSMENT
@@ -221,53 +199,37 @@ The following sections describe each component: input quality assessment (Sectio
 \section{Tuberculosis Classification}
 \label{sec:tb_classification}
 
-The TB classification module classifies each CXR as either healthy, sick non-TB, or TB as seen in Figure~\ref{fig:pipeline}.
+The TB classification module flags each CXR as either healthy, sick non-TB, or TB as seen in Figure~\ref{fig:pipeline}.
 
 \subsection{Dataset}
 
-Classification and localization models are trained on TBX11K, a public dataset of 11,200 CXRs with image-level labels (\textit{healthy}, \textit{sick non-TB}, \textit{TB}) for classification and bounding box-level labels (\textit{active-TB} and \textit{latent-TB})~\cite{liu2020tbx11k} for localization (Section~\ref{sec:tb_localization}). We use a redistribution of TBX11K with labels simplified for usability\footnote{\url{https://www.kaggle.com/datasets/vbookshelf/tbx11k-simplified}}.
+Classification and localization models are trained on TBX11K~\cite{liu2020tbx11k}, a public CXR dataset with image-level labels (\textit{healthy}, \textit{sick non-TB}, \textit{TB}) and bounding-box-level labels (\textit{active-TB}, \textit{latent-TB}). We use a simplified redistribution\footnote{\url{https://www.kaggle.com/datasets/vbookshelf/tbx11k-simplified}} with 8,400 CXRs (3,800 healthy, 3,800 sick non-TB, 800 TB), with a 79\%/21\% train/validation split (6,600 and 1,800 images). TBX11K is selected since it is the largest public TB CXR dataset combining a TB-specific sample large enough to train from scratch, expert bounding-box annotations, a sick non-TB class, and a demographic and class composition that reflect real-world clinical settings~\cite{liu2023tbx11k_pami}.
 
-TBX11K was selected as it is one of the few publicly available TB CXR datasets that satisfies the following:
-
-\begin{itemize}
-    \item Large TB-specific split to train networks from scratch.
-    \item Expert bounding-box annotations for TB regions.
-    \item Demographic composition and class imbalance which reflect real-world clinical settings~\cite{liu2023tbx11k_pami}. The sick non-TB class is important to this realism, since in deployment a radiologist receives scans from the full patient stream, many of whom are sick with conditions other than TB, so a clinically useful model must separate TB from other disease.% TODO: Class split
-\end{itemize}
-
-The official TBX11K test set is withheld for an online challenge, so we use the publicly available validation set as our test set for all experiments. Our results should therefore not be compared directly to those reported for SymFormer ~\cite{liu2023tbx11k_pami} or other entries on the online challenge, which are measured on the private test set.
+The official TBX11K test set is withheld for an online challenge, so we evaluate on the public validation set. Our results are therefore not directly comparable to SymFormer~\cite{liu2023tbx11k_pami} or other challenge entries on the private test set.
 
 \subsection{Data Preprocessing}
 
-Classification models are trained without preprocessing or data augmentation since low-quality inputs are already filtered out by the input quality gate (Section \ref{sec:iqa}). In addition, CXRs are acquired under a standardized posteroanterior protocol and are largely uniform in pose, so aggressive augmentation risks introducing distribution shift.
+Classification models are trained without preprocessing or data augmentation. CXRs unfit for inference are already filtered out by the input quality assessment module. CXRs are also acquired under a standardized posteroanterior protocol and are largely uniform in pose, so aggressive augmentation risks introducing distribution shift.
 
 \subsection{Model Architecture}
 
-We evaluate nine classifiers: six standard baselines and three custom models. Baselines comprise EfficientNet-B0~\cite{tan2019efficientnet}, MobileNetV3-Large~\cite{howard2019mobilenetv3}, DenseNet-121~\cite{huang2017densenet}, ResNet-18, ResNet-50~\cite{he2016resnet}, and ConvNeXt-Tiny~\cite{liu2022convnext}. Custom models are DraxNet, Drax-MobileNetV3-Large, and FlipR.
+We evaluate nine classifiers: six baselines (EfficientNet-B0~\cite{tan2019efficientnet}, MobileNetV3-Large~\cite{howard2019mobilenetv3}, DenseNet-121~\cite{huang2017densenet}, ResNet-18, ResNet-50~\cite{he2016resnet}, ConvNeXt-Tiny~\cite{liu2022convnext}) and three custom models (DraxNet, Drax-MobileNetV3-Large, FlipR).
 
 \subsubsection{DraxNet}
 
-DraxNet is a custom model ($17.0$M parameters) based on a ResNet-18 backbone. The main modification is that the fourth layer consists of two ResNet blocks, each with a custom mixer (\emph{DraxBlock}) inserted between its two convolutions. All other components are unchanged from ResNet-18.
-
-\emph{DraxBlock} is a conv-attention hybrid that consists of a ConvNeXt local convolutional branch followed by an optional self-attention branch. Residuals are fused through a stochastic-depth block.
-
-DraxNet refers to Dynamic Residual Attention eXchange. The rationale is to use the well-understood ResNet-18 backbone for the high-resolution early stages and introduce the heavier custom mixer only at the final, lowest-resolution stage where the feature map is most compact, which adds attention capacity with fewer additional parameters and compute.
+DraxNet ($17.0$M parameters) modifies a ResNet-18 backbone so the fourth layer consists of two ResNet blocks, each with a custom mixer (\emph{DraxBlock}) inserted between its two convolutions. All other components are unchanged. \emph{DraxBlock} consists of a ConvNeXt local convolutional branch followed by an optional self-attention branch, fused via stochastic-depth residuals. DraxNet, short for Dynamic Residual Attention eXchange, reserves the heavier mixer for the final, lowest-resolution stage, adding attention capacity with fewer parameters than a full attention backbone.
 
 \subsubsection{Drax-MobileNetV3-Large}
 
-Drax-MobileNetV3-Large is a second custom variant ($6.1$M parameters) that applies the same DraxBlock idea to a more parameter-efficient backbone. The MobileNetV3-Large feature extractor and classification head are kept unchanged, and a bottlenecked \emph{DraxBlock} is inserted after the final feature stage, keeping the overall model close to MobileNetV3-Large in parameter count while testing whether the DraxBlock generalizes beyond a ResNet-style backbone.
+Drax-MobileNetV3-Large ($6.1$M parameters) applies the DraxBlock to a parameter-efficient backbone. The MobileNetV3-Large feature extractor and head are unchanged, and a bottlenecked \emph{DraxBlock} is inserted after the final feature stage. This tests whether the DraxBlock generalizes beyond a ResNet-style backbone.
 
 \subsubsection{FlipR}
 
-FlipR is a lightweight custom model ($2.8$M parameters) built on a ResNet-18 backbone. The ResNet-18 stem, layers, and classification head are unchanged. A custom block, named \emph{FlipR}, is inserted between layers.
-
-The \emph{FlipR} block computes the difference between each feature map and its horizontally flipped counterpart after a smoothing step with average pooling, which accounts for imperfect anatomical symmetry. From this, a gated mask is broadcast across all channels at once.
-
-The block is inspired by SymAttention~\cite{liu2023tbx11k_pami}, which observes that bilateral asymmetry in CXRs is a key indicator of TB. FlipR tests whether a lightweight symmetry gate can achieve this over heavier attention-based approaches.
+FlipR ($2.8$M parameters) inserts a \emph{FlipR} block between layers of an otherwise unchanged ResNet-18. The \emph{FlipR} block computes the difference between each feature map and its horizontally flipped counterpart, smoothed by average pooling to account for imperfect anatomical symmetry, then broadcasts a gated mask across all channels. The block is inspired by SymAttention~\cite{liu2023tbx11k_pami}, which observes that bilateral asymmetry in CXRs is a key indicator of TB. FlipR tests whether a lightweight symmetry gate can match heavier attention approaches.
 
 \subsection{Model Training}
 
-All models are trained from scratch with a fixed random seed, batch size of $16$, $512\times512$ input resolution, and $100$ epochs, using Adam with a fixed learning rate of $10^{-3}$, no learning-rate schedule, and an unweighted cross-entropy loss. No hyperparameter tuning was done.
+All models are trained from scratch with a fixed random seed, batch size $16$, $512\times512$ input, $100$ epochs, Adam at a fixed learning rate of $10^{-3}$, no schedule, and unweighted cross-entropy loss. No hyperparameter tuning was done.
 
 \begin{table*}[!tb]
 \renewcommand{\arraystretch}{1.2}
@@ -302,16 +264,16 @@ ConvNeXt-Tiny          & 0.9952 & 97.14 & 95.00 & 97.98 & 93.63 & 96.58 & 94.97 
 
 Classification results are reported in Table~\ref{tab:classification_results}.
 
-\textbf{MobileNetV3-Large is the top classifier, while FlipR achieves comparable results with half of its parameters.} Due to the single-seed, single-split evaluation and small ($\pm 3\%$) differences in performance, the ordering among the top four (FlipR, EfficientNet, MobileNetV3-Large, Drax-MobileNetV3-Large) can likely be attributed to stochasticity. The four differ most on sensitivity ($\pm 2.5\%$ difference), with MobileNetV3-Large ($96.67\%$ sensitivity) interpreted as the top model since sensitivity is more clinically important in TB screening. Despite lower sensitivity, FlipR achieves comparable results on other metrics with roughly half the size ($2.8$M vs $5.5$M for MobileNetV3-Large). FlipR's results support the hypothesis from SymFormer ~\cite{liu2023tbx11k_pami} that bilateral asymmetry is highly indicative of TB.
+\textbf{MobileNetV3-Large is the top classifier, while FlipR achieves comparable results with half the parameters.} Given the small ($\pm 1\%$) differences, ordering among the top four (FlipR, EfficientNet, MobileNetV3-Large, Drax-MobileNetV3-Large) is likely due to stochasticity. They differ most on sensitivity ($\pm 2.5\%$), so we interpret MobileNetV3-Large ($96.67\%$ sensitivity) as the top model, since sensitivity is the clinically dominant metric in TB screening. FlipR reaches comparable results on other metrics at roughly half the size ($2.8$M vs $5.5$M), supporting the SymFormer~\cite{liu2023tbx11k_pami} hypothesis that bilateral asymmetry is highly indicative of TB.
 
 \textbf{All models meet WHO targets for TB triage.}
-Sensitivity ranges from $92.50-96.67\%$, meeting the WHO target of minimum $90\%$ sensitivity. Specificity also ranges from $97.98-99.91\%$, $~25\%$ above the WHO target of minimum $70\%$ specificity~\cite{who_tpp_2014}. Models are more likely to classify a CXR as no TB or sick non-TB, and rarely raise false alarms. For TB screening, sensitivity is more clinically important than specificity, since a missed TB (false negative) case results in untreated TB and risk of transmission, whereas false positives result in unnecessary confirmatory testing. The top model, MobileNetV3-Large, misses only $3.3\%$ of TB cases.
+Sensitivity ranges from $92.50$ to $96.67\%$, clearing the WHO target of $90\%$ sensitivity. Specificity ranges from $97.98$ to $99.91\%$, well above the WHO target of $70\%$ specificity~\cite{who_tpp_2014}. Sensitivity is more clinically important than specificity in screening, since a missed TB case risks untreated transmission while a false positive triggers only confirmatory testing. The top model, MobileNetV3-Large, misses only $3.3\%$ of TB cases.
 
-\textbf{High specificity, lower sensitivity is likely attributable to the TBX11K dataset rather than model architecture.}
-Related literature shows that various models' performance on TBX11K consistently achieve similar results of high specificity and lower sensitivity. The TBX11K dataset frames high specificity as the desirable outcome on the dataset, since the common failure mode of models on other TB datasets is over-predicting TB and achieving near-zero specificity~\cite{liu2023tbx11k_pami}.
+\textbf{The high-specificity, lower-sensitivity profile is likely attributable to TBX11K rather than model architecture.}
+Models in the literature consistently show the same pattern on TBX11K. The dataset is constructed to reward high specificity, since the common failure mode on other TB datasets is over-predicting TB and collapsing specificity to near-zero~\cite{liu2023tbx11k_pami}.
 
-\textbf{Lightweight models are preferred for TB screening for both performance and practical use.}
-Smaller models outperform larger ones across the board. MobileNetV3-Large ($5.5$M), EfficientNet-B0 ($5.3$M), and FlipR ($2.8$M) all achieve higher accuracy and F1 than larger models. The TBX11K training set is modest and the TB class is the minority, with no techniques applied for class imbalance, so the additional capacity of larger networks appears to overfit the majority healthy and sick non-TB classes rather than learning discriminative TB features. TB screening is also concentrated in high-burden, resource-limited settings where inference frequently runs without a dedicated GPU, so a lightweight model is preferable in clinical settings.
+\textbf{Lightweight models are preferred for TB screening on both performance and deployment grounds.}
+Smaller models outperform larger ones across the board: MobileNetV3-Large ($5.5$M), EfficientNet-B0 ($5.3$M), and FlipR ($2.8$M) beat all larger models in accuracy and F1. Due to a modest TBX11K training set, a minority TB class, and no class-imbalance handling, larger networks appear to overfit the majority healthy and sick non-TB classes rather than learn discriminative TB features. TB screening also runs in resource-limited settings often without a dedicated GPU, so a lightweight model is preferable in deployment.
 
 % ============================================================
 % TUBERCULOSIS LOCALIZATION
@@ -321,19 +283,15 @@ Smaller models outperform larger ones across the board. MobileNetV3-Large ($5.5$
 
 \subsection{Dataset}
 
-Localization uses the bounding-box-level annotations of the TBX11K dataset, where each region is classified as either active TB or latent TB~\cite{liu2020tbx11k}.
-
-Active TB denotes ongoing infection that is transmissible and requires treatment. Latent TB denotes prior, healed or inactive infection that is not contagious and does not require immediate treatment, although may be at risk of reactivation. As seen in Figure~\ref{fig:pipeline}, active TB is more immediately visible, and latent TB is more subtle.
-
-A CXR classified as TB at the image-level may contain only active-TB lesions ($924$ images), only latent-TB lesions ($212$ images), or lesions of both types ($54$ images), as depicted in Figure~\ref{fig:pipeline}. This class composition is consistent with real-world conditions.
+Localization uses the TBX11K bounding-box annotations, with each region labeled active TB or latent TB~\cite{liu2020tbx11k}. Active TB denotes ongoing, transmissible infection requiring treatment; latent TB denotes prior, inactive infection that is not contagious but may reactivate. As Figure~\ref{fig:pipeline} shows, active TB is more visually salient and latent TB is more subtle. A TB-labeled CXR may contain only active-TB lesions ($924$ images), only latent-TB lesions ($212$ images), or both ($54$ images), a composition consistent with real-world conditions.
 
 \subsection{Model Architecture}
 
-We evaluate YOLO26 and a custom variant, YOLO26 with a DraxNet backbone. In the custom model, the detector's default feature extractor is replaced by the DraxNet backbone used in the classification experiments. This isolates the effect of the backbone on TB localization while the detection head and training protocol are unchanged.
+We evaluate YOLO26 and a custom variant in which the detector's default feature extractor is replaced by the DraxNet backbone used in classification. The detection head and training protocol are unchanged, isolating the backbone's effect on localization.
 
 \subsection{Model Training}
 
-Localization uses the same configuration as model training for classification models reported in Section~\ref{sec:tb_classification}.
+Localization uses the same training configuration as the classification models (Section~\ref{sec:tb_classification}).
 
 \begin{table}[!ht]
 \renewcommand{\arraystretch}{1.2}
@@ -381,19 +339,19 @@ Localization results per class are reported in Table~\ref{tab:detection_results}
 % \textbf{DraxNet improves on the locations of detected active TB regions, but does not detect more regions overall.}
 
 \textbf{Active TB is more likely to be detected than latent TB.}
-The very low $\mathrm{mAP}_{50\text{-}95}$ for latent TB is likely due to the class imbalance in TBX11K (active-TB regions outnumber latent-TB regions by roughly 4:1) and the subtle appearance of latent-TB lesions. The TBX11K reference likewise reports all detection methods struggle with latent TB, attributing this to the class imbalance~\cite{liu2023tbx11k_pami}. This is also consistent with human reader performance, which distinguish latent TB less reliably than active-TB findings~\cite{choi2023tb_activity}. Since active TB requires urgent treatment as compared to latent TB, this therefore aligns with clinical triage priorities. 
+The very low $\mathrm{mAP}_{50\text{-}95}$ for latent TB reflects the TBX11K class imbalance (active-TB regions outnumber latent-TB regions roughly 4:1) and the subtle appearance of latent-TB lesions. The TBX11K reference reports the same pattern across all detection methods, attributing it to imbalance~\cite{liu2023tbx11k_pami}, and it is consistent with human readers distinguishing latent TB less reliably~\cite{choi2023tb_activity}. The bias toward active TB also aligns with clinical triage priorities, since active TB requires urgent treatment.
 
 \textbf{The DraxNet backbone specializes toward active TB.}
-YOLO26 with DraxNet backbone improves active TB localization substantially over vanilla YOLO26, raising $\mathrm{mAP}_{50\text{-}95}$ from $0.2110$ to $0.2748$ ($+0.0638$), but slightly reduces LTB from $0.0410$ to $0.0310$. This gain is driven almost entirely by precision, which rises from $0.74$ to $0.82$, while recall is unchanged at approximately $0.26$.
+YOLO26 with the DraxNet backbone raises active-TB $\mathrm{mAP}_{50\text{-}95}$ from $0.2110$ to $0.2748$ ($+0.0638$) while slightly reducing latent-TB ($0.0410$ to $0.0310$). The gain is driven almost entirely by precision ($0.74 \rightarrow 0.82$). Recall is unchanged at roughly $0.26$.
 
 \textbf{Recall, not precision, is the bottleneck.}
-Both detectors localize confidently but detect only about a quarter of the annotated TB regions. In Figure~\ref{fig:detection_curves}, precision stays high while recall saturates near $0.26$, and the latent-TB curve collapses at low confidence for both detectors. 
+Both detectors localize confidently but find only about a quarter of the annotated TB regions. Figure~\ref{fig:detection_curves} shows precision staying high while recall saturates near $0.26$, and the latent-TB curve collapsing at low confidence for both detectors.
 
-\textbf{Localization is useful to detect TB, but should not be used to exclude TB.} Clinically, the high-precision, low-recall profile defines how localization should be used. A flagged lesion is relatively likely to be correct and thus warrants focused radiologist review, but the detector must not be used to exclude TB since most annotated lesions are missed. This indicates that localization is most reliable as supporting region-level evidence for the classifier and LLM explanation modules, rather than as a standalone detector.
+\textbf{Localization is useful to confirm TB, not to rule it out.} The high-precision, low-recall profile dictates clinical use: a flagged lesion is likely correct and warrants focused radiologist review, but the detector must not exclude TB since most annotated lesions are missed. Localization is therefore most reliable as supporting region-level evidence for the classifier and LLM explanation modules, rather than as a standalone detector.
 
 \subsection{Implementation Notes}
 
-Localization runs only on CXRs the classifier (Section~\ref{sec:tb_classification}) flags as TB. CXRs ruled non-TB skip localization, since any lesions found would contradict the classifier's decision.
+Localization runs only on CXRs the classifier (Section~\ref{sec:tb_classification}) flags as TB. Non-TB CXRs skip localization, since any lesions found would contradict the classifier's decision.
 
 % ============================================================
 % MULTIMODAL EXPLANATION
@@ -463,13 +421,6 @@ Localization runs only on CXRs the classifier (Section~\ref{sec:tb_classificatio
 Generative AI tools were used to assist in drafting and preparing this manuscript. The conception of the research, methodology, and conclusions are the work of the authors.
 
 % ============================================================
-% ACKNOWLEDGEMENTS
-% ============================================================
-\section*{Acknowledgements}
-
-% TODO: Add acknowledgments as appropriate.
-
-% ============================================================
 % REFERENCES
 % ============================================================
 \begin{thebibliography}{40}
@@ -518,6 +469,9 @@ A.~J.~DeGrave, J.~D.~Janizek, and S.-I.~Lee, ``AI for radiographic COVID-19 dete
 
 \bibitem{siemens_llm_cxr_2023}
 M.~D.~Danu, G.~Marica, S.~K.~Karn, B.~Georgescu, A.~Mansoor, F.~Ghesu, L.~M.~Itu, C.~Suciu, S.~Grbic, O.~Farri, and D.~Comaniciu, ``Generation of radiology findings in chest X-ray by leveraging collaborative knowledge,'' \textit{Procedia Computer Science (ITQM 2023)}, 2023. [Online]. Available: https://arxiv.org/abs/2306.10448
+
+\bibitem{ghesu2022ssl_medical}
+F.~C.~Ghesu, B.~Georgescu, A.~Mansoor, Y.~Yoo, D.~Neumann, P.~Patel, R.~S.~Vishwanath, J.~M.~Balter, Y.~Cao, S.~Grbic, and D.~Comaniciu, ``Self-supervised learning from 100 million medical images,'' \textit{arXiv preprint arXiv:2201.01283}, 2022. [Online]. Available: https://arxiv.org/abs/2201.01283
 
 \bibitem{li2023llava_med}
 C.~Li \textit{et al.}, ``LLaVA-Med: Training a large language-and-vision assistant for biomedicine in one day,'' \textit{Advances in Neural Information Processing Systems}, 2023. [Online]. Available: https://arxiv.org/abs/2306.00890
