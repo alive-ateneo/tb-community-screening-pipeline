@@ -240,39 +240,37 @@ The image-level labels are used for the classification experiments in this secti
 
 \subsection{Data Preprocessing}
 
-The ResNet-18, ResNet-50, and DraxNet models are trained without data augmentation. No augmentation was performed since low-quality inputs are already filtered out by the input quality gate (Section \ref{sec:iqa}). In additiong, unlike natural-image object detection, screening chest radiographs are acquired under a standardized posteroanterior protocol and are largely uniform in pose, so aggressive augmentation risks introducing distribution shift.
-
-% TODO: Update FlipR transforms?
-
-FlipR is trained with a low-intensity augmentation pipeline applied to the training split only. These training augmentations are: horizontal flip ($p=0.5$); a small affine transform (translation $\pm5\%$, scale $0.9$--$1.1$, rotation $\pm10^{\circ}$, $p=0.5$); mild random brightness/contrast jitter ($\pm0.15$, $p=0.5$); and Gaussian noise ($p=0.2$), followed by ImageNet normalization.
+Classification models are trained without preprocessing or data augmentation since low-quality inputs are already filtered out by the input quality gate (Section \ref{sec:iqa}). In addition, CXRs are acquired under a standardized posteroanterior protocol and are largely uniform in pose, so aggressive augmentation risks introducing distribution shift.
 
 \subsection{Model Architecture}
 
-We evaluate four classifiers: ResNet-18, ResNet-50~\cite{he2016resnet}, and two custom models (DraxNet and FlipR).
+We evaluate nine classifiers: six standard baselines and three custom models. Baselines comprise EfficientNet-B0~\cite{tan2019efficientnet}, MobileNetV3-Large~\cite{howard2019mobilenetv3}, DenseNet-121~\cite{huang2017densenet}, ResNet-18, ResNet-50~\cite{he2016resnet}, and ConvNeXt-Tiny~\cite{liu2022convnext}. Custom models are DraxNet, Drax-MobileNetV3-Large, and FlipR.
 
 \subsubsection{DraxNet}
 
-DraxNet is a custom model ($17.0$M parameters) based on a ResNet-18 backbone. The main modification is that the fourth layer consists of two custom blocks called \emph{DraxResidualBlocks}. All other components, including the stem, layers, and classification head, are unchanged from ResNet-18.
+DraxNet is a custom model ($17.0$M parameters) based on a ResNet-18 backbone. The main modification is that the fourth layer consists of two custom blocks called \emph{DraxResidualBlocks}. All other components are unchanged from ResNet-18.
 
 A \emph{DraxResidualBlock} uses the same residual and internal layers as a ResNet block, but inserts a custom mixer, the \emph{DraxBlock}, between its two convolutions.
 
 The \emph{DraxBlock} is a conv-attention hybrid that consists of a ConvNeXt local convolutional branch followed by an optional SelfAttention2D branch. Residuals are fused through a stochastic depth (DropPath) block.
 
-The name DraxNet abbreviates Dynamic Residual Attention eXchange.  The design rationale is to leave the well-understood ResNet-18 backbone intact for the high-resolution early stages and introduce the heavier custom mixer only at the final, lowest-resolution stage where the feature map is most compact, which adds attention capacity while limiting parameter and compute growth.
+The name DraxNet abbreviates Dynamic Residual Attention eXchange. The design rationale is to use the well-understood ResNet-18 backbone for the high-resolution early stages and introduce the heavier custom mixer only at the final, lowest-resolution stage where the feature map is most compact, which adds attention capacity with fewer additional parameters and compute.
+
+\subsubsection{Drax-MobileNetV3-Large}
+
+Drax-MobileNetV3-Large is a second custom variant ($6.1$M parameters) that applies the same DraxBlock idea to a more parameter-efficient backbone. The MobileNetV3-Large feature extractor and classification head are kept unchanged, and a bottlenecked \emph{DraxBlock} is inserted after the final feature stage. The bottleneck keeps the added capacity small, so the overall model remains close to MobileNetV3-Large in parameter count while testing whether the DraxBlock generalizes beyond a ResNet-style backbone.
 
 \subsubsection{FlipR}
 
-FlipR is a lightweight custom model ($2.2$M parameters) built on a ResNet-18 backbone. The ResNet-18 stem, layers, and classification head are unchanged. A custom block, named \emph{FlipR} is inserted between layers.
+FlipR is a lightweight custom model ($2.8$M parameters) built on a ResNet-18 backbone. The ResNet-18 stem, layers, and classification head are unchanged. A custom block, named \emph{FlipR}, is inserted between layers.
 
 The \emph{FlipR} block computes the difference between each feature map and its horizontally flipped counterpart (where the flipped version is first smoothed with average pooling to account for imperfect anatomical symmetry). From this, a gated mask is broadcast across all channels at once.
 
-The block is inspired by the SymAttention mechanism of SymFormer~\cite{liu2023tbx11k_pami}, which observes that bilateral asymmetry in the chest radiograph is a key indicator of TB. The design goal is to test whether a simple, parameter-efficient symmetry-aware gate can capture the same bilateral-asymmetry cue as heavier spatial-transformer approaches. Hence, FlipR has roughly one-fifth the parameters of ResNet-18.
+The block is inspired by the SymAttention mechanism of SymFormer~\cite{liu2023tbx11k_pami}, which observes that bilateral asymmetry in the chest radiograph is a key indicator of TB. The design goal is to test whether a simple, parameter-efficient symmetry-aware gate can capture the same bilateral-asymmetry cue as heavier spatial-transformer approaches. Hence, FlipR has roughly one-quarter the parameters of ResNet-18.
 
 \subsection{Model Training}
 
-All models are implemented in PyTorch and trained from scratch. Training uses a random seed of $42$, batch size of $16$, $512\times512$ input resolution, and $100$ epochs. Optimization uses the Adam optimizer with a fixed learning rate of $10^{-3}$, no learning-rate schedule, and an unweighted cross-entropy loss. No hyperparameter tuning was done.
-
-\subsection{Results}
+All models are trained from scratch with a random seed of $42$, batch size of $16$, $512\times512$ input resolution, and $100$ epochs. Optimization uses the Adam optimizer with a fixed learning rate of $10^{-3}$, no learning-rate schedule, and an unweighted cross-entropy loss. No hyperparameter tuning was done.
 
 \begin{table*}[!tb]
 \renewcommand{\arraystretch}{1.2}
@@ -285,10 +283,15 @@ All models are implemented in PyTorch and trained from scratch. Training uses a 
 \toprule
 \textbf{Model} & \textbf{AUC$_{\text{TB}}$} & \textbf{Acc. (\%)} & \textbf{Sens. (\%)} & \textbf{Spec. (\%)} & \textbf{Avg. Prec. (\%)} & \textbf{Avg. Rec. (\%)} & \textbf{Avg. F1 (\%)} & \textbf{Params} \\
 \midrule
-ResNet-18 & 0.9973 & 98.41 & \textbf{92.50} & 99.39 & 97.27 & 96.86 & 97.06 & 11.7M \\
-ResNet-50 & 0.9965 & 97.86 & 87.50 & 99.47 & 96.99 & 95.13 & 96.01 & 25.6M \\
-DraxNet   & \textbf{0.9990} & \textbf{98.97} & 91.67 & \textbf{99.91} & \textbf{99.01} & \textbf{97.05} & \textbf{97.98} & 17.0M \\
-FlipR     & --- & --- & --- & --- & --- & --- & --- & \textbf{2.2M} \\
+FlipR                  & 0.9984 & 98.97 & 94.17 & \textbf{99.91} & \textbf{99.01} & 97.70 & 98.34 & \textbf{2.8M} \\
+EfficientNet-B0        & \textbf{0.9995} & 98.89 & 95.00 & 99.65 & 98.29 & 97.87 & 98.07 & 5.3M \\
+MobileNetV3-Large      & \textbf{0.9995} & \textbf{99.21} & \textbf{96.67} & 99.82 & 98.97 & \textbf{98.54} & \textbf{98.75} & 5.5M \\
+Drax-MobileNetV3-Large & 0.9989 & 98.81 & 95.00 & 99.65 & 98.23 & 97.81 & 98.02 & 6.1M \\
+DenseNet-121           & 0.9975 & 98.57 & 92.50 & 99.56 & 97.81 & 96.97 & 97.38 & 8.0M \\
+ResNet-18              & 0.9982 & 98.17 & 93.33 & 99.21 & 96.71 & 96.90 & 96.80 & 11.7M \\
+DraxNet                & 0.9988 & 98.41 & 95.00 & 99.47 & 97.51 & 97.51 & 97.51 & 17.0M \\
+ResNet-50              & 0.9978 & 97.70 & 92.50 & 99.47 & 96.95 & 96.33 & 96.63 & 25.6M \\
+ConvNeXt-Tiny          & 0.9952 & 97.14 & 95.00 & 97.98 & 93.63 & 96.58 & 94.97 & 28.6M \\
 \bottomrule
 \end{tabular}
 \begin{tablenotes}[flushleft]
@@ -298,21 +301,20 @@ FlipR     & --- & --- & --- & --- & --- & --- & --- & \textbf{2.2M} \\
 \end{threeparttable}
 \end{table*}
 
+\subsection{Results}
+
 Classification results are reported in Table~\ref{tab:classification_results}.
 
-\textbf{DraxNet and ResNet-18 achieve the strongest results with comparable performance} (Table~\ref{tab:classification_results}). DraxNet's minor performance gains are attributable to stochasticity and minor improved detection of sick non-TB cases or non-TB cases over ResNet-18. However, DraxNet does not significantly improve deection of cases with TB.
+\textbf{MobileNetV3-Large is the top classifier, while FlipR achieves comparable results with half of its parameters.} Due to the single-seed, single-split evaluation and small ($\pm 3\%$) differences in performance, the ordering among the top four (FlipR, EfficientNet, MobileNetV3-Large, Drax-MobileNetV3-Large) can likely be attributed to stochasticity. The four differ most on sensitivity ($\pm 2.5\%$ difference), with MobileNetV3-Large ($96.67\%$ sensitivity) interpreted as the top model since sensitivity is more clinically important in TB screening. Despite lower sensitivity, FlipR achieves comparable results on other metrics with roughly half the size ($2.8$M vs $5.5$M for MobileNetV3-Large). FlipR's results support the hypothesis from SymFormer ~\cite{liu2023tbx11k_pami} that bilateral asymmetry is highly indicative of TB.
 
-\textbf{DraxNet and ResNet-18 achieve WHO targets for sensitivity and specificity.}
-All three models achieve TB specificity above $99\%$ and TB sensitivity between $87.5\%$ and $92.5\%$. The models are therefore conservative, rarely raising false alarms but missing $7.5$ to $12.5\%$ of TB cases. For a TB screening application, sensitivity is more clinically important than specificity. A missed TB (false negative) case results in untreated TB and risk of transmission, whereas false positive cases merely result in unnecessary testing for TB confirmation. Compared to the WHO targets for TB triage (min. sensitivity of $90\%$ and min. specificity of $70\%$~\cite{who_tpp_2014}), all models are above threshold for minimum specificity, but only DraxNet and ResNet-18 border on WHO-recommended sensitivity.
+\textbf{All models meet WHO targets for TB triage.}
+Sensitivity ranges from $92.50-96.67\%$, meeting the WHO target of minimum $90\%$ sensitivity. Specificity also ranges from $97.98-99.91\%$, $~25\%$ above the WHO target of minimum $70\%$ specificity~\cite{who_tpp_2014}. Models are more likely to classify a CXR as no TB or sick non-TB, and rarely raise false alarms. For TB screening, sensitivity is more clinically important than specificity, since a missed TB (false negative) case results in untreated TB and risk of transmission, whereas false positives result in unnecessary confirmatory testing. The top model, MobileNetV3-Large, misses only $3.3\%$ of TB cases.
 
 \textbf{High specificity, lower sensitivity is likely attributable to the TBX11K dataset rather than model architecture.}
-Related literature shows various models' performance on TBX11K similarly achieve high specificity and lower sensitivity. The TBX11K dataset frames high specificity as the desirable outcome on the dataset, since the common failure mode of models on other TB datasets is over-predicting TB and achieving near-zero specificity~\cite{liu2023tbx11k_pami}.
+Related literature shows that various models' performance on TBX11K consistently achieve similar results of high specificity and lower sensitivity. The TBX11K dataset frames high specificity as the desirable outcome on the dataset, since the common failure mode of models on other TB datasets is over-predicting TB and achieving near-zero specificity~\cite{liu2023tbx11k_pami}.
 
-\textbf{Radiologist-in-the-loop rather than substitution of radiologists.}
- The conservative model is more suited to a confirmatory, radiologist-in-the-loop role, consistent with the positioning in Section~\ref{sec:explanation}. Further improving sensitivity would be required before frontline screening use that substitutes for trained radiologists.
- 
- \textbf{Lightweight models are preferred for TB screening.}
- ResNet-18 slightly outperforms ResNet-50, especially on TB sensitivity ($92.50\%$ versus $87.50\%$). We hypothesize that this is due to the modest dataset size, of which the TB class is the minority. No techniques are applied to handle class imbalance. Hence, the additional capacity of ResNet-50 is likely overfitting the majority healthy and sick non-TB classes rather than learning discriminative TB features, leading to reduced sensitivity yet comparable specificity and overall accuracy to other models. In addition, TB screening is concentrated in high-burden, resource-limited settings where inference frequently runs without a dedicated GPU, so a lightweight model is preferable on both performance and operational grounds.
+\textbf{Lightweight models are preferred for TB screening for both performance and practical use.}
+Smaller models outperform larger ones across the board. MobileNetV3-Large ($5.5$M), EfficientNet-B0 ($5.3$M), and FlipR ($2.8$M) all achieve higher accuracy and F1 than larger models. The TBX11K training set is modest and the TB class is the minority, with no techniques applied for class imbalance, so the additional capacity of larger networks appears to overfit the majority healthy and sick non-TB classes rather than learning discriminative TB features. TB screening is also concentrated in high-burden, resource-limited settings where inference frequently runs without a dedicated GPU, so a lightweight model is preferable in clinical settings.
 
 % ============================================================
 % TUBERCULOSIS LOCALIZATION
@@ -652,6 +654,18 @@ A.~Ghosh \textit{et al.}, ``Scalable drift monitoring in medical imaging AI,'' \
 
 \bibitem{he2016resnet}
 K.~He, X.~Zhang, S.~Ren, and J.~Sun, ``Deep residual learning for image recognition,'' in \textit{Proc. IEEE Conf. Computer Vision and Pattern Recognition (CVPR)}, 2016, pp.~770--778. [Online]. Available: https://arxiv.org/abs/1512.03385
+
+\bibitem{huang2017densenet}
+G.~Huang, Z.~Liu, L.~van~der~Maaten, and K.~Q.~Weinberger, ``Densely connected convolutional networks,'' in \textit{Proc. IEEE Conf. Computer Vision and Pattern Recognition (CVPR)}, 2017, pp.~4700--4708. [Online]. Available: https://arxiv.org/abs/1608.06993
+
+\bibitem{howard2019mobilenetv3}
+A.~Howard \textit{et al.}, ``Searching for MobileNetV3,'' in \textit{Proc. IEEE/CVF Int. Conf. Computer Vision (ICCV)}, 2019, pp.~1314--1324. [Online]. Available: https://arxiv.org/abs/1905.02244
+
+\bibitem{tan2019efficientnet}
+M.~Tan and Q.~V.~Le, ``EfficientNet: Rethinking model scaling for convolutional neural networks,'' in \textit{Proc. Int. Conf. Machine Learning (ICML)}, 2019, pp.~6105--6114. [Online]. Available: https://arxiv.org/abs/1905.11946
+
+\bibitem{liu2022convnext}
+Z.~Liu, H.~Mao, C.-Y.~Wu, C.~Feichtenhofer, T.~Darrell, and S.~Xie, ``A ConvNet for the 2020s,'' in \textit{Proc. IEEE/CVF Conf. Computer Vision and Pattern Recognition (CVPR)}, 2022, pp.~11976--11986. [Online]. Available: https://arxiv.org/abs/2201.03545
 
 \bibitem{lin2014coco}
 T.-Y.~Lin, M.~Maire, S.~Belongie, J.~Hays, P.~Perona, D.~Ramanan, P.~Doll\'{a}r, and C.~L.~Zitnick, ``Microsoft COCO: Common objects in context,'' in \textit{Proc. European Conf. Computer Vision (ECCV)}, 2014, pp.~740--755. [Online]. Available: https://arxiv.org/abs/1405.0312
