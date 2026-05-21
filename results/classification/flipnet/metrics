@@ -1,0 +1,9 @@
+AUROC - 0.998
+Acc - 98.96%
+Sens (Recall) - 94.16 
+Spec - 99.13 (averaged between healthy and sick non-tb)
+
+Avg Precision - 99.01
+Avg F1 - 98.33 
+
+Params - 2,783,684(2.8)

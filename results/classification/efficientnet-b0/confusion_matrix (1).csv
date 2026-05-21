@@ -1,0 +1,4 @@
+actual/predicted,healthy,sick-non-tb,tb
+healthy,565,3,2
+sick-non-tb,1,567,2
+tb,0,6,114
