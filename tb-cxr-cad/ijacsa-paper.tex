@@ -59,7 +59,7 @@
 
 \begin{document}
 
-\title{A Clinical Workflow Integration Layer for Tuberculosis Chest X-ray Screening}
+\title{A Workflow Support System for Computer-Aided Tuberculosis Screening from Chest X-Rays}
 
 \IEEEoverridecommandlockouts
 \author{\IEEEauthorblockN{Raphael B. Alampay~\orcidlink{0000-0001-7498-8830},
@@ -74,12 +74,12 @@ Patricia Angela R. Abu~\orcidlink{0000-0002-8848-6644}}
 % ABSTRACT
 % ============================================================
 \begin{abstract}
-Tuberculosis (TB) causes more deaths than any other infectious disease worldwide. However, high-burden areas are often short-staffed on radiologists to interpret chest X-rays for TB screening. Hence, computer-aided detection (CAD) systems for TB screening are in wide use. While TB detection models are highly accurate, several practical challenges emerge when integrating these systems into clinical workflows. Commercial TB CAD systems often do not account for X-ray image quality, post-deployment monitoring, and explanation of findings in natural language for interpreting radiologists. We present a prototype of a clinical workflow integration layer to address these issues. Its lead contribution is a large language model explanation module that describes model findings in natural language for radiologists, a feature not yet present in the commercial products we reviewed. Supporting modules add an input quality gate to assess X-ray image quality, a structured evidence interface to present findings, and a post-deployment monitoring dashboard. Alongside the workflow layer, we also develop and benchmark custom models for tuberculosis classification and localization. Our results show that ... (TODO).
+Tuberculosis (TB) causes more deaths than any other infectious disease worldwide. While computer-aided detection (CAD) systems used in TB screening programs achieve high diagnostic accuracy, several practical challenges emerge in the screening workflow. Commercial TB CAD products often do not account for X-ray image quality, post-deployment monitoring, and explanation of findings in natural language for screening teams, which often do not involve a radiologist. We present a prototype workflow support system for TB screening to address these issues. Its lead contribution is a clinically grounded LLM explanation module that describes model findings in natural language, a feature not yet present in the commercial products we reviewed. Supporting modules add an input quality gate to assess X-ray image quality and a post-deployment monitoring dashboard. We also develop and benchmark custom models for TB classification and localization. Our results show that ... (TODO).
 % TODO: Add quantitative results summary once evaluation is complete.
 \end{abstract}
 
 \begin{IEEEkeywords}
-Tuberculosis; Computer-Aided Detection; Chest X-ray; Clinical Workflow; Medical Imaging; Computer Vision
+Tuberculosis; Computer-Aided Detection; Chest X-ray; Medical Imaging; Computer Vision 
 \end{IEEEkeywords}
 
 \IEEEpeerreviewmaketitle
@@ -91,10 +91,6 @@ Tuberculosis; Computer-Aided Detection; Chest X-ray; Clinical Workflow; Medical 
 
 Tuberculosis (TB) causes more deaths than any other infectious disease worldwide~\cite{who_global_tb_2024}. It is caused by airborne \textit{Mycobacterium tuberculosis} and primarily affects the lungs~\cite{pai2016tb}. Low- and middle-income countries bear a disproportionate share of the burden, compounded by limited access to diagnostics, delayed presentation, and overburdened health infrastructure~\cite{who_screening_2021}.
 
-Chest X-ray (CXR) is the most widely used triage modality for TB screening~\cite{burrill2007tb_radiology}. If TB is suspected, bacteriological testing (sputum smear or molecular assays) is conducted to confirm TB~\cite{who_screening_2021}. However, high-burden countries are often short-staffed on radiologists to interpret CXRs, especially in primary care and rural units where volumes are highest~\cite{who_screening_2021}. The shortage has driven the development of computer-aided detection (CAD) systems that flag CXRs suggestive of TB~\cite{who_cad_policy_2021}.
-
-Radiologists agree with AI findings on most cases, and AI assistance is found to improve radiologist performance. A reader study found that AI assistance raised physician AUC from 0.773 to 0.874 and enabled non-radiologists to match trained radiologists~\cite{anderson2024deep}. In real-world use, radiologists were in complete agreement with AI on 86.5\% of cases, with only 0.5\% of findings missed by the model~\cite{jones2021realworld}.
-
 \begin{table*}[!t]
 \label{tab:feature_comparison}
 \renewcommand{\arraystretch}{1.2}
@@ -104,14 +100,14 @@ Radiologists agree with AI findings on most cases, and AI assistance is found to
 \label{tab:product_comparison}
 \scriptsize
 \setlength{\tabcolsep}{4pt}
-\begin{tabularx}{\textwidth}{@{}X *{8}{c}@{}}
+\begin{tabularx}{\textwidth}{@{}X *{7}{c}@{}}
 \toprule
-\textbf{Feature} & \textbf{qXR}~\cite{qxr_docs} & \textbf{CAD4TB+}~\cite{cad4tb_product} & \textbf{Lunit}~\cite{lunit_product} & \textbf{DrAid}~\cite{draid_product} & \textbf{Genki}~\cite{genki_product} & \textbf{InferRead}~\cite{inferread_product} & \textbf{Siemens}~\cite{siemens_product} & \textbf{Proposed} \\
+\textbf{Feature} & \textbf{qXR}~\cite{qxr_docs} & \textbf{CAD4TB+}~\cite{cad4tb_product} & \textbf{Lunit}~\cite{lunit_product} & \textbf{DrAid}~\cite{draid_product} & \textbf{Genki}~\cite{genki_product} & \textbf{InferRead}~\cite{inferread_product} & \textbf{Proposed} \\
 \midrule
-Chest X-ray quality assessment            &              &              &              & \textit{n/a} & \textit{n/a} &              & $\checkmark$ & $\checkmark$ \\
-Monitoring and analytics dashboard            &              &              & $\checkmark$ & \textit{n/a} & \textit{n/a} &              &              & $\checkmark$ \\
-Heatmap/overlay of localization findings  & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ \\
-Explanation of findings in natural language &            &              &              & \textit{n/a} & \textit{n/a} &              &              & $\checkmark$ \\
+Chest X-ray quality assessment & & & & \textit{n/a} & \textit{n/a} & & $\checkmark$ \\
+Monitoring and analytics dashboard & & & $\checkmark$ & \textit{n/a} & \textit{n/a} & & $\checkmark$ \\
+Heatmap/overlay of localization findings & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ \\
+Explanation of findings in natural language & & & & \textit{n/a} & \textit{n/a} & & $\checkmark$ \\
 \bottomrule
 \end{tabularx}
 \begin{tablenotes}[flushleft]
@@ -122,33 +118,31 @@ Explanation of findings in natural language &            &              &       
 \end{threeparttable}
 \end{table*}
 
-\subsection{Maturity of TB CAD Systems}
+TB omputer-aided detection (CAD) systems have matured into routine clinical use. The World Health Organization (WHO) endorsed CAD systems as an alternative to human readers for people aged 15 years and older~\cite{who_cad_policy_2021}. TB screening programs often use mobile X-ray units and CAD systems, where CAD substitutes for human readers~\cite{stoptb_cad_guide}~\cite{find_cad_landscape}. In 2025, WHO approved six commercial products as meeting its TB screening performance standards~\cite{who_cad_approval_2025}. In one reader study, AI-CAD assistance improved radiologist performance and enabled non-radiologists to achieve similar performance as radiologists~\cite{anderson2024deep}. Several reviews report model accuracy approaching WHO targets across populations~\cite{ahmad2023systematic, scott2024tb_cad_africa, khan2025tb_meta}, indicating that the field has moved beyond improving accuracy toward real-world use in high-volume screening programs.
 
-TB CAD systems have matured into routine clinical use. The World Health Organization (WHO) endorsed CAD as an alternative to human readers in 2021~\cite{who_cad_policy_2021}, and in 2025 approved six commercial products as meeting its TB screening performance standards~\cite{who_cad_approval_2025}. Reviews report model accuracy approaching WHO targets across populations~\cite{ahmad2023systematic, scott2024tb_cad_africa, khan2025tb_meta}, indicating that the field has moved beyond accuracy toward integrating TB CAD into routine clinical workflows.
+\subsection{Gaps in Screening Workflow Integration}
 
-\subsection{Gaps in Clinical Workflow Integration}
+Reviews and deployment studies consistently identify gaps in practical implementation of CAD systems. Among CXR AI studies, workflow integration, local validation, and human factors remain under-studied~\cite{mongan2023review, ahmad2023systematic}. An India deployment identified barriers in workflow, connectivity, and interpretation~\cite{vijayan2023india_tb_cad}, a Vietnam deployment showed only 47.3\% agreement between physician and CAD interpretations at three months~\cite{innes2023vietnam_tb_cad}, and clinicians across countries valued CAD as a complement rather than a replacement~\cite{creswell2023user_perspectives_tb}. The following gaps emerge in the literature:
 
-Reviews and deployment studies consistently identify gaps between laboratory accuracy and clinical implementation. Only a small proportion of published CXR AI studies are prospective or clinically embedded, and workflow integration, local validation, and human factors remain under-studied~\cite{mongan2023review, ahmad2023systematic}. Field deployments report similar issues: an India deployment identified barriers in workflow, connectivity, and interpretation~\cite{vijayan2023india_tb_cad}, a Vietnam deployment showed only 47.3\% agreement between physician and CAD interpretations at three months~\cite{innes2023vietnam_tb_cad}, and clinicians across countries valued CAD most as a complement rather than a replacement~\cite{creswell2023user_perspectives_tb}. Usability testing further showed that users wanted clearer explanations of model findings~\cite{cheung2022uai}. Three concrete gaps emerge:
+\textbf{Image quality varies in real-world use.} Chest X-ray (CXR) is the most widely used modality for TB screening~\cite{burrill2007tb_radiology}. TB CAD systems are trained on curated datasets, but CXR images may be poorly positioned, clipped, underexposed, or photographed from analog film~\cite{desita2026photographed}, especially in community screening programs using mobile X-ray units. Poor input quality degrades performance, yet most systems do not expose user-facing quality assessment before inference~\cite{mongan2023review, degrave2021shortcut}.
 
-\textbf{CXR image quality varies in real-world use.} CAD systems are trained on curated datasets, but routine hospital images may be poorly positioned, clipped, underexposed, or photographed from analog film~\cite{nasser2023photographed}. Poor input quality degrades performance, yet most systems do not expose a user-facing quality assessment feature before inference~\cite{mongan2023review, degrave2021shortcut}.
-
-\textbf{Heatmaps for explaining model findings lack clinical utility.} All commercial CAD products in Table \ref{tab:product_comparison} provide heatmaps of regions that influenced the model's prediction. However, radiologist studies report that these are less intuitive than discrete localized findings~\cite{ihongbe2024xai_cxr}, often overlap poorly with expert-identified regions, and do not convey the contextual reasoning used during diagnosis~\cite{chen2022xai_human_centered}. Textual descriptions and case-based reasoning have been proposed as more clinically meaningful alternatives~\cite{borys2023xai_beyond_saliency, siemens_llm_cxr_2023}.
+\textbf{Heatmaps for explaining model findings lack clinical utility.} All commercial TB CAD products in Table \ref{tab:product_comparison} provide heatmaps for model explainability. However, heatmaps are less intuitive for radiologists than discrete localized findings~\cite{ihongbe2024xai_cxr}, often overlap poorly with expert-identified regions, and do not convey the contextual reasoning used during diagnosis~\cite{chen2022xai_human_centered}. A TB CAD acceptability study found that users wanted to understand why the model reached its conclusions~\cite{hua2025qxr_acceptability}. Textual descriptions and case-based reasoning have been proposed as more clinically meaningful alternatives~\cite{borys2023xai_beyond_saliency, siemens_llm_cxr_2023}.
 
 \textbf{Post-deployment monitoring is often lacking.} Deployed performance may shift due to population, equipment, or software changes~\cite{finlayson2021shift}. The U.S. Food and Drug Administration has identified these as risks to AI-enabled medical devices and initiated research on proactive post-market monitoring~\cite{fda_postmarket}, but in practice this remains an operational gap~\cite{mongan2023review}.
 
 \subsection{Related Work}
 
-Academic prototypes have explored vision-language models to explain findings in natural language. Siemens Healthineers, who also developed one of the commercial TB CAD systems compared in this paper, pair a combined classification-localization model~\cite{ghesu2022ssl_medical} with a domain-adapted LLM to generate CXR findings~\cite{siemens_llm_cxr_2023}, although this feature is not yet in their commercial product. General medical vision-language models such as LLaVA-Med~\cite{li2023llava_med} and CXR-LLaVA~\cite{lee2024cxr_llava} demonstrate image-conditioned radiology text generation, and recent surveys catalogue the rapid growth of vision-language models for medical report generation~\cite{bazi2024vlm_review}. However, these remain research prototypes rather than features in deployed systems or commercial products.
+Related literature has explored models to explain findings in natural language, although this is not yet implemented in deployed systems or commercial products. In a research prototype, Siemens Healthineers paired a combined classification-localization model~\cite{ghesu2022ssl_medical} with a domain-adapted LLM to generate CXR findings~\cite{siemens_llm_cxr_2023}. General medical vision-language models such as LLaVA-Med~\cite{li2023llava_med} and CXR-LLaVA~\cite{lee2024cxr_llava} demonstrate image-conditioned radiology text generation, and recent surveys catalogue the rapid growth of vision-language models for medical report generation~\cite{bazi2024vlm_review}.
 
-We compare against seven commercial CAD products: six WHO-approved (qXR v4.0~\cite{qxr_docs}, CAD4TB v7~\cite{cad4tb_product}, Lunit INSIGHT CXR v3.1~\cite{lunit_product}, DrAid v2.4.4--6~\cite{draid_product}, Genki Edge v3.4.2~\cite{genki_product}, InferRead DR Chest v1.0.1.1~\cite{inferread_product})~\cite{who_cad_approval_2025} plus Siemens AI-Rad Companion~\cite{siemens_product}, which uniquely implements input quality assessment and has explored language-based explanation in research~\cite{siemens_llm_cxr_2023}. As Table~\ref{tab:product_comparison} summarizes, all provide heatmap localization, but post-deployment monitoring is uncommon, input quality assessment is largely absent, and no product is known to explain findings in natural language.
+We compare against the six WHO-approved TB CAD products in Table~\ref{tab:product_comparison}: qXR v4.0~\cite{qxr_docs}, CAD4TB v7~\cite{cad4tb_product}, Lunit INSIGHT CXR v3.1~\cite{lunit_product}, DrAid v2.4.4--6~\cite{draid_product}, Genki Edge v3.4.2~\cite{genki_product}, and InferRead DR Chest v1.0.1.1~\cite{inferread_product}~\cite{who_cad_approval_2025}. While all provide heatmap localization, post-deployment monitoring is uncommon, input quality assessment is largely absent, and no product is known to explain findings in natural language.
 
 \subsection{Scope and Contribution}
 
-This paper presents a prototype clinical workflow integration layer for TB CAD that targets the gaps above. Its contributions are:
+This paper presents a workflow support system for TB screening that targets the gaps above. Its contributions are:
 
 \begin{enumerate}
-    \item A \textbf{natural language explanation module} (lead contribution) that describes AI-detected findings and suspected abnormalities with clinical grounding.
-    \item An \textbf{input quality assessment module} that screens radiographs for acquisition defects before inference.
+    \item A \textbf{natural language explanation module} (lead contribution) that describes detected abnormalities with clinical grounding, supporting bounding box-level visual evidence.
+    \item An \textbf{input quality assessment module} that screens CXR images for acquisition defects before inference.
     \item A \textbf{post-deployment monitoring dashboard} tracking system behavior and performance over time.
 \end{enumerate}
 
@@ -166,7 +160,7 @@ As a secondary contribution, we develop and benchmark custom models for classifi
     \label{fig:pipeline}
 \end{figure}
 
-The system processes a CXR through a sequential pipeline described in Figure \ref{fig:pipeline}. A CXR (DICOM or standard image format) is ingested from the clinical imaging system or uploaded directly, then evaluated for acquisition quality before any diagnostic inference. Images passing quality screening are scored by the TB classification module. For cases flagged as TB, localization (object detection) is done to detect active and latent TB. Findings are passed to a module that generates a natural language description of the finding based in clinical context. Outputs render in a structured evidence panel, and each case is logged for post-deployment monitoring.
+Figure \ref{fig:pipeline} describes the system architecture. A CXR (DICOM or standard image format) is ingested from the screening unit's X-ray or uploaded directly, then evaluated for acquisition quality. Images passing quality screening are scored by the TB classification module. For images flagged as TB, localization (object detection) is done to detect active and latent TB regions. Findings are passed to a module that generates a natural language description of the findings based in clinical context. Outputs are displayed in the interface, and each case is logged for post-deployment monitoring.
 
 % ============================================================
 % INPUT QUALITY ASSESSMENT
@@ -267,7 +261,7 @@ Classification results are reported in Table~\ref{tab:classification_results}.
 \textbf{MobileNetV3-Large is the top classifier, while FlipR achieves comparable results with half the parameters.} Given the small ($\pm 1\%$) differences, ordering among the top four (FlipR, EfficientNet, MobileNetV3-Large, Drax-MobileNetV3-Large) is likely due to stochasticity. They differ most on sensitivity ($\pm 2.5\%$), so we interpret MobileNetV3-Large ($96.67\%$ sensitivity) as the top model, since sensitivity is the clinically dominant metric in TB screening. FlipR reaches comparable results on other metrics at roughly half the size ($2.8$M vs $5.5$M), supporting the SymFormer~\cite{liu2023tbx11k_pami} hypothesis that bilateral asymmetry is highly indicative of TB.
 
 \textbf{All models meet WHO targets for TB triage.}
-Sensitivity ranges from $92.50$ to $96.67\%$, clearing the WHO target of $90\%$ sensitivity. Specificity ranges from $97.98$ to $99.91\%$, well above the WHO target of $70\%$ specificity~\cite{who_tpp_2014}. Sensitivity is more clinically important than specificity in screening, since a missed TB case risks untreated transmission while a false positive triggers only confirmatory testing. The top model, MobileNetV3-Large, misses only $3.3\%$ of TB cases.
+Sensitivity ranges from $92.50$ to $96.67\%$, clearing the WHO target of $90\%$ sensitivity. Specificity ranges from $97.98$ to $99.91\%$, well above the WHO target of $70\%$ specificity~\cite{who_screening_2021}. Sensitivity is more clinically important than specificity in screening, since a missed TB case risks untreated transmission while a false positive triggers only confirmatory testing. The top model, MobileNetV3-Large, misses only $3.3\%$ of TB cases.
 
 \textbf{The high-specificity, lower-sensitivity profile is likely attributable to TBX11K rather than model architecture.}
 Models in the literature consistently show the same pattern on TBX11K. The dataset is constructed to reward high specificity, since the common failure mode on other TB datasets is over-predicting TB and collapsing specificity to near-zero~\cite{liu2023tbx11k_pami}.
@@ -348,10 +342,6 @@ YOLO26 with the DraxNet backbone raises active-TB $\mathrm{mAP}_{50\text{-}95}$ 
 Both detectors localize confidently but find only about a quarter of the annotated TB regions. Figure~\ref{fig:detection_curves} shows precision staying high while recall saturates near $0.26$, and the latent-TB curve collapsing at low confidence for both detectors.
 
 \textbf{Localization is useful to confirm TB, not to rule it out.} The high-precision, low-recall profile dictates clinical use: a flagged lesion is likely correct and warrants focused radiologist review, but the detector must not exclude TB since most annotated lesions are missed. Localization is therefore most reliable as supporting region-level evidence for the classifier and LLM explanation modules, rather than as a standalone detector.
-
-\subsection{Implementation Notes}
-
-Localization runs only on CXRs the classifier (Section~\ref{sec:tb_classification}) flags as TB. Non-TB CXRs skip localization, since any lesions found would contradict the classifier's decision.
 
 % ============================================================
 % MULTIMODAL EXPLANATION
@@ -446,23 +436,14 @@ World Health Organization, ``WHO operational handbook on tuberculosis. Module 2:
 \bibitem{who_cad_approval_2025}
 World Health Organization, ``Use of computer-aided detection software for tuberculosis screening: WHO policy statement,'' Geneva: WHO, 2025. [Online]. Available: https://www.who.int/publications/i/item/9789240110373
 
-\bibitem{who_tpp_2014}
-World Health Organization, ``High-priority target product profiles for new tuberculosis diagnostics: report of a consensus meeting,'' Geneva: WHO, 2014. [Online]. Available: https://www.who.int/publications/i/item/WHO-HTM-TB-2014.18
-
 \bibitem{ahmad2023systematic}
 H.~K.~Ahmad \textit{et al.}, ``Machine learning augmented interpretation of chest X-rays: A systematic review,'' \textit{Diagnostics}, vol.~13, no.~4, art.~743, 2023. [Online]. Available: https://pmc.ncbi.nlm.nih.gov/articles/PMC9955112/
 
 \bibitem{anderson2024deep}
 P.~G.~Anderson \textit{et al.}, ``Deep learning improves physician accuracy in the comprehensive detection of abnormalities on chest X-rays,'' \textit{Scientific Reports}, vol.~14, 2024. [Online]. Available: https://www.nature.com/articles/s41598-024-76608-2
 
-\bibitem{jones2021realworld}
-C.~M.~Jones \textit{et al.}, ``Assessment of the effect of a comprehensive chest radiograph deep learning model on radiologist reports and patient outcomes: A real-world observational study,'' \textit{BMJ Open}, 2021. [Online]. Available: https://pubmed.ncbi.nlm.nih.gov/34930738/
-
 \bibitem{mongan2023review}
 J.~Mongan \textit{et al.}, ``Artificial intelligence and machine learning for chest radiography,'' \textit{Radiology}, vol.~307, no.~3, 2023. [Online]. Available: https://pmc.ncbi.nlm.nih.gov/articles/PMC10128969/
-
-\bibitem{cheung2022uai}
-E.~Cheung \textit{et al.}, ``U`AI' testing: User interface and usability testing of a chest X-ray AI tool in a simulated real-world workflow,'' \textit{Canadian Association of Radiologists Journal}, 2022. [Online]. Available: https://journals.sagepub.com/doi/10.1177/08465371221131200
 
 \bibitem{degrave2021shortcut}
 A.~J.~DeGrave, J.~D.~Janizek, and S.-I.~Lee, ``AI for radiographic COVID-19 detection selects shortcuts over signal,'' \textit{Nature Machine Intelligence}, vol.~3, pp.~610--619, 2021. [Online]. Available: https://pmc.ncbi.nlm.nih.gov/articles/PMC10047562/
@@ -497,9 +478,6 @@ Delft Imaging, ``CAD4TB+.'' [Online]. Available: https://delft.care/cad4tb/
 \bibitem{lunit_product}
 Lunit, ``INSIGHT CXR.'' [Online]. Available: https://www.lunit.io/en/products/cxr
 
-\bibitem{siemens_product}
-Siemens Healthineers, ``AI-Rad Companion Chest X-Ray.'' [Online]. Available: https://www.siemens-healthineers.com/en-th/digital-health-solutions/digital-solutions-overview/clinical-decision-support/ai-rad-companion/chest-xray
-
 \bibitem{draid_product}
 VinBrain, ``DrAid for TB screening.'' [Online]. Available: https://draid.ai/
 
@@ -509,8 +487,20 @@ DeepTek, ``Genki: AI for tuberculosis screening.'' [Online]. Available: https://
 \bibitem{inferread_product}
 Infervision, ``InferRead DR Chest: instruction for use,'' (hosted on the Stop TB Partnership Digital Health Technology Hub). [Online]. Available: https://stoptb.org/assets/documents/dhthub/User\%20Manual\%20Software\%20-\%20InferRead\%20DR\%20Chest.pdf
 
-\bibitem{nasser2023photographed}
-M.~Nasser \textit{et al.}, ``Chest X-ray screening for pulmonary tuberculosis using photographed analog radiographs,'' \textit{PLOS Digital Health}, 2023. [Online]. Available: https://pmc.ncbi.nlm.nih.gov/articles/PMC12955127/
+\bibitem{stoptb_cad_guide}
+  Stop TB Partnership, ``Screening and triage for TB using computer-aided detection (CAD) technology and
+   ultra-portable X-ray systems: A practical guide.'' [Online]. Available:
+  \url{https://www.stoptb.org/sites/default/files/imported/page/Screening_and_Triage_for_TB_using_Comput
+  er-Aided_Detection__CAD__Technology_and_Ultra-portable_X-Ray_Systems-A_Practical_Guide_.pdf}
+
+  \bibitem{find_cad_landscape}
+  FIND, ``Digital chest radiography and computer-aided detection (CAD) solutions for tuberculosis
+  diagnostics: Technology landscape analysis,'' 2021. [Online]. Available: \url{https://www.finddx.org/w
+  p-content/uploads/2023/02/20210401_technology_landscape_computer_aided_tb_FV_EN.pdf}
+
+
+\bibitem{desita2026photographed}
+Z.~Desita, T.~Tadesse, A.~S.~Bohlbro \textit{et al.}, ``Computer-aided analysis of photographed chest X-ray films performs well compared with trained radiologists,'' \textit{Mayo Clinic Proceedings: Digital Health}, 2026. [Online]. Available: https://pmc.ncbi.nlm.nih.gov/articles/PMC12955127/
 
 \bibitem{chen2022xai_human_centered}
 H.~Chen, C.~Gomez, C.-M.~Huang, and M.~Unberath, ``Explainable medical imaging AI needs human-centered design: guidelines and evidence from a systematic review,'' \textit{npj Digital Medicine}, vol.~5, no.~156, 2022. [Online]. Available: https://www.nature.com/articles/s41746-022-00699-2
