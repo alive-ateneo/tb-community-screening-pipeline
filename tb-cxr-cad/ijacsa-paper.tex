@@ -151,7 +151,7 @@ As a secondary contribution, we develop and benchmark custom models for classifi
 % ============================================================
 % II. MATERIALS AND METHODS
 % ============================================================
-\section{System Architecture}
+\section{System Overview}
 
 \begin{figure}[t]
     \centering
@@ -160,7 +160,7 @@ As a secondary contribution, we develop and benchmark custom models for classifi
     \label{fig:pipeline}
 \end{figure}
 
-Figure \ref{fig:pipeline} describes the system architecture. A CXR (DICOM or standard image format) is ingested from the screening unit's X-ray or uploaded directly, then evaluated for acquisition quality. Images passing quality screening are scored by the TB classification module. For images flagged as TB, localization (object detection) is done to detect active and latent TB regions. Findings are passed to a module that generates a natural language description of the findings based in clinical context. Outputs are displayed in the interface, and each case is logged for post-deployment monitoring.
+Figure \ref{fig:pipeline} describes the system overview. A CXR (DICOM or standard image format) is ingested from the screening unit's X-ray or uploaded directly, then evaluated for acquisition quality. Images passing quality screening are scored by the TB classification module. For images flagged as TB, localization (object detection) is done to detect active and latent TB regions. Findings are passed to a module that generates a natural language description of the findings based in clinical context. Outputs are displayed in the interface, and each case is logged for post-deployment monitoring.
 
 % ============================================================
 % INPUT QUALITY ASSESSMENT
