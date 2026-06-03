@@ -153,7 +153,7 @@ As a secondary contribution, we develop and benchmark custom models for classifi
 % ============================================================
 \section{System Overview}
 
-\begin{figure}[t]
+\begin{figure}[!tb]
     \centering
     \includegraphics[width=\linewidth]{../figures/pipeline.png}
     \caption{Overview of the proposed TB CAD pipeline.}
@@ -195,6 +195,35 @@ Figure \ref{fig:pipeline} describes the system overview. A CXR (DICOM or standar
 
 The TB classification module flags each CXR as either healthy, sick non-TB, or TB as seen in Figure~\ref{fig:pipeline}.
 
+\begin{table*}[!t]
+\renewcommand{\arraystretch}{1.2}
+\centering
+\begin{threeparttable}
+\caption{Tuberculosis Classification Results}
+\label{tab:classification_results}
+\small
+\begin{tabular}{@{}l c c c c c c c c@{}}
+\toprule
+\textbf{Model} & \textbf{AUC$_{\text{TB}}$} & \textbf{Acc. (\%)} & \textbf{Sens. (\%)} & \textbf{Spec. (\%)} & \textbf{Avg. Prec. (\%)} & \textbf{Avg. Rec. (\%)} & \textbf{Avg. F1 (\%)} & \textbf{Params} \\
+\midrule
+FlipR                  & 0.9984 & 98.97 & 94.17 & \textbf{99.91} & \textbf{99.01} & 97.70 & 98.34 & \textbf{2.8M} \\
+EfficientNet-B0        & \textbf{0.9995} & 98.89 & 95.00 & 99.65 & 98.29 & 97.87 & 98.07 & 5.3M \\
+MobileNetV3-Large      & \textbf{0.9995} & \textbf{99.21} & \textbf{96.67} & 99.82 & 98.97 & \textbf{98.54} & \textbf{98.75} & 5.5M \\
+Drax-MobileNetV3-Large & 0.9989 & 98.81 & 95.00 & 99.65 & 98.23 & 97.81 & 98.02 & 6.1M \\
+DenseNet-121           & 0.9975 & 98.57 & 92.50 & 99.56 & 97.81 & 96.97 & 97.38 & 8.0M \\
+ResNet-18              & 0.9982 & 98.17 & 93.33 & 99.21 & 96.71 & 96.90 & 96.80 & 11.7M \\
+DraxNet                & 0.9988 & 98.41 & 95.00 & 99.47 & 97.51 & 97.51 & 97.51 & 17.0M \\
+ResNet-50              & 0.9978 & 97.70 & 92.50 & 99.47 & 96.95 & 96.33 & 96.63 & 25.6M \\
+ConvNeXt-Tiny          & 0.9952 & 97.14 & 95.00 & 97.98 & 93.63 & 96.58 & 94.97 & 28.6M \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}[flushleft]
+\footnotesize
+\item AUC$_{\text{TB}}$ is the area under the ROC curve for the TB class. Sensitivity is recall for the TB class. Specificity is recall for the non-TB class (healthy and sick non-TB combined). Precision, recall, and F1 are averaged across the three classes (healthy, sick non-TB, TB).
+\end{tablenotes}
+\end{threeparttable}
+\end{table*}
+
 \subsection{Dataset}
 
 Classification and localization models are trained on TBX11K~\cite{liu2020tbx11k}, a public CXR dataset with image-level labels (\textit{healthy}, \textit{sick non-TB}, \textit{TB}) and bounding-box-level labels (\textit{active-TB}, \textit{latent-TB}). We use a simplified redistribution\footnote{\url{https://www.kaggle.com/datasets/vbookshelf/tbx11k-simplified}} with 8,400 CXRs (3,800 healthy, 3,800 sick non-TB, 800 TB), with a 79\%/21\% train/validation split (6,600 and 1,800 images). TBX11K is selected since it is the largest public TB CXR dataset combining a TB-specific sample large enough to train from scratch, expert bounding-box annotations, a sick non-TB class, and a demographic and class composition that reflect real-world clinical settings~\cite{liu2023tbx11k_pami}.
@@ -224,35 +253,6 @@ FlipR ($2.8$M parameters) inserts a \emph{FlipR} block between layers of an othe
 \subsection{Model Training}
 
 All models are trained from scratch with a fixed random seed, batch size $16$, $512\times512$ input, $100$ epochs, Adam at a fixed learning rate of $10^{-3}$, no schedule, and unweighted cross-entropy loss. No hyperparameter tuning was done.
-
-\begin{table*}[!tb]
-\renewcommand{\arraystretch}{1.2}
-\centering
-\begin{threeparttable}
-\caption{Tuberculosis Classification Results}
-\label{tab:classification_results}
-\small
-\begin{tabular}{@{}l c c c c c c c c@{}}
-\toprule
-\textbf{Model} & \textbf{AUC$_{\text{TB}}$} & \textbf{Acc. (\%)} & \textbf{Sens. (\%)} & \textbf{Spec. (\%)} & \textbf{Avg. Prec. (\%)} & \textbf{Avg. Rec. (\%)} & \textbf{Avg. F1 (\%)} & \textbf{Params} \\
-\midrule
-FlipR                  & 0.9984 & 98.97 & 94.17 & \textbf{99.91} & \textbf{99.01} & 97.70 & 98.34 & \textbf{2.8M} \\
-EfficientNet-B0        & \textbf{0.9995} & 98.89 & 95.00 & 99.65 & 98.29 & 97.87 & 98.07 & 5.3M \\
-MobileNetV3-Large      & \textbf{0.9995} & \textbf{99.21} & \textbf{96.67} & 99.82 & 98.97 & \textbf{98.54} & \textbf{98.75} & 5.5M \\
-Drax-MobileNetV3-Large & 0.9989 & 98.81 & 95.00 & 99.65 & 98.23 & 97.81 & 98.02 & 6.1M \\
-DenseNet-121           & 0.9975 & 98.57 & 92.50 & 99.56 & 97.81 & 96.97 & 97.38 & 8.0M \\
-ResNet-18              & 0.9982 & 98.17 & 93.33 & 99.21 & 96.71 & 96.90 & 96.80 & 11.7M \\
-DraxNet                & 0.9988 & 98.41 & 95.00 & 99.47 & 97.51 & 97.51 & 97.51 & 17.0M \\
-ResNet-50              & 0.9978 & 97.70 & 92.50 & 99.47 & 96.95 & 96.33 & 96.63 & 25.6M \\
-ConvNeXt-Tiny          & 0.9952 & 97.14 & 95.00 & 97.98 & 93.63 & 96.58 & 94.97 & 28.6M \\
-\bottomrule
-\end{tabular}
-\begin{tablenotes}[flushleft]
-\footnotesize
-\item AUC$_{\text{TB}}$ is the area under the ROC curve for the TB class. Sensitivity is recall for the TB class. Specificity is recall for the non-TB class (healthy and sick non-TB combined). Precision, recall, and F1 are averaged across the three classes (healthy, sick non-TB, TB).
-\end{tablenotes}
-\end{threeparttable}
-\end{table*}
 
 \subsection{Results}
 
@@ -298,11 +298,11 @@ Localization uses the same training configuration as the classification models (
 \toprule
 \textbf{Model} & \textbf{Class} & \textbf{mAP$_{50}$} & \textbf{mAP$_{50\text{-}95}$} \\
 \midrule
-YOLO26                    & ATB & --- & 0.2110 \\
-YOLO26                    & LTB & --- & \textbf{0.0410} \\
+YOLO26                    & ATB & 0.4511 & 0.2110 \\
+YOLO26                    & LTB & \textbf{0.1070} & \textbf{0.0410} \\
 \midrule
-YOLO26 + DraxNet & ATB & --- & \textbf{0.2748} \\
-YOLO26 + DraxNet & LTB & --- & 0.0310 \\
+YOLO26 + DraxNet & ATB & \textbf{0.5865} & \textbf{0.2748} \\
+YOLO26 + DraxNet & LTB & 0.1017 & 0.0310 \\
 \bottomrule
 \end{tabular}
 \begin{tablenotes}[flushleft]
@@ -333,15 +333,15 @@ Localization results per class are reported in Table~\ref{tab:detection_results}
 % \textbf{DraxNet improves on the locations of detected active TB regions, but does not detect more regions overall.}
 
 \textbf{Active TB is more likely to be detected than latent TB.}
-The very low $\mathrm{mAP}_{50\text{-}95}$ for latent TB reflects the TBX11K class imbalance (active-TB regions outnumber latent-TB regions roughly 4:1) and the subtle appearance of latent-TB lesions. The TBX11K reference reports the same pattern across all detection methods, attributing it to imbalance~\cite{liu2023tbx11k_pami}, and it is consistent with human readers distinguishing latent TB less reliably~\cite{choi2023tb_activity}. The bias toward active TB also aligns with clinical triage priorities, since active TB requires urgent treatment.
+Both detectors localize active TB roughly four times more accurately than latent TB at $\mathrm{mAP}_{50}$ and roughly five to nine times more accurately at $\mathrm{mAP}_{50\text{-}95}$. This gap reflects the TBX11K class imbalance (active-TB regions outnumber latent-TB regions roughly 4:1) and the subtle appearance of latent-TB lesions. The TBX11K reference reports the same pattern across all detection methods, attributing it to imbalance~\cite{liu2023tbx11k_pami}, and it is consistent with human readers distinguishing latent TB less reliably~\cite{choi2023tb_activity}. The bias toward active TB also aligns with clinical triage priorities, since active TB requires urgent treatment.
 
 \textbf{The DraxNet backbone specializes toward active TB.}
-YOLO26 with the DraxNet backbone raises active-TB $\mathrm{mAP}_{50\text{-}95}$ from $0.2110$ to $0.2748$ ($+0.0638$) while slightly reducing latent-TB ($0.0410$ to $0.0310$). The gain is driven almost entirely by precision ($0.74 \rightarrow 0.82$). Recall is unchanged at roughly $0.26$.
+YOLO26 with the DraxNet backbone raises active-TB $\mathrm{mAP}_{50}$ from $0.4511$ to $0.5865$ ($+0.1354$) and $\mathrm{mAP}_{50\text{-}95}$ from $0.2110$ to $0.2748$ ($+0.0638$), while slightly reducing latent-TB ($0.1070 \rightarrow 0.1017$ at $\mathrm{mAP}_{50}$; $0.0410 \rightarrow 0.0310$ at $\mathrm{mAP}_{50\text{-}95}$). The gain is driven almost entirely by precision ($0.74 \rightarrow 0.82$). Recall is unchanged at roughly $0.26$.
 
 \textbf{Recall, not precision, is the bottleneck.}
 Both detectors localize confidently but find only about a quarter of the annotated TB regions. Figure~\ref{fig:detection_curves} shows precision staying high while recall saturates near $0.26$, and the latent-TB curve collapsing at low confidence for both detectors.
 
-\textbf{Localization is useful to confirm TB, not to rule it out.} The high-precision, low-recall profile dictates clinical use: a flagged lesion is likely correct and warrants focused radiologist review, but the detector must not exclude TB since most annotated lesions are missed. Localization is therefore most reliable as supporting region-level evidence for the classifier and LLM explanation modules, rather than as a standalone detector.
+\textbf{Localization is useful to confirm (rule-in) TB, but not to rule it out.} The high-precision, low-recall profile dictates clinical use: a flagged lesion is likely correct and warrants focused radiologist review, but the detector must not exclude TB since most annotated lesions are missed. Localization is therefore most reliable as supporting region-level evidence for the classifier and LLM explanation modules, rather than as a standalone detector.
 
 % ============================================================
 % MULTIMODAL EXPLANATION
@@ -402,6 +402,13 @@ Both detectors localize confidently but find only about a quarter of the annotat
 % Frame as: the field has moved from "can TB CAD classify chest X-rays?"
 % to "how can a prototype integrate clinical workflow support and clinician-facing
 % explanation around mature TB CAD for hospital use?"
+
+% ============================================================
+% ACKNOWLEDGMENTS
+% ============================================================
+\section*{Acknowledgments}
+
+The authors would like to thank the University Research Council (URC) of Ateneo de Manila University for supporting this work through a URC Standard Grant (URC 2025-20).
 
 % ============================================================
 % DECLARATION ON GENERATIVE AI
@@ -488,15 +495,10 @@ DeepTek, ``Genki: AI for tuberculosis screening.'' [Online]. Available: https://
 Infervision, ``InferRead DR Chest: instruction for use,'' (hosted on the Stop TB Partnership Digital Health Technology Hub). [Online]. Available: https://stoptb.org/assets/documents/dhthub/User\%20Manual\%20Software\%20-\%20InferRead\%20DR\%20Chest.pdf
 
 \bibitem{stoptb_cad_guide}
-  Stop TB Partnership, ``Screening and triage for TB using computer-aided detection (CAD) technology and
-   ultra-portable X-ray systems: A practical guide.'' [Online]. Available:
-  \url{https://www.stoptb.org/sites/default/files/imported/page/Screening_and_Triage_for_TB_using_Comput
-  er-Aided_Detection__CAD__Technology_and_Ultra-portable_X-Ray_Systems-A_Practical_Guide_.pdf}
+Stop TB Partnership, ``Screening and triage for TB using computer-aided detection (CAD) technology and ultra-portable X-ray systems: A practical guide,'' Geneva, Switzerland, 2021. [Online]. Available: \url{https://www.stoptb.org/sites/default/files/imported/page/Screening_and_Triage_for_TB_using_Computer-Aided_Detection__CAD__Technology_and_Ultra-portable_X-Ray_Systems-A_Practical_Guide_.pdf}
 
-  \bibitem{find_cad_landscape}
-  FIND, ``Digital chest radiography and computer-aided detection (CAD) solutions for tuberculosis
-  diagnostics: Technology landscape analysis,'' 2021. [Online]. Available: \url{https://www.finddx.org/w
-  p-content/uploads/2023/02/20210401_technology_landscape_computer_aided_tb_FV_EN.pdf}
+\bibitem{find_cad_landscape}
+FIND, ``Digital chest radiography and computer-aided detection (CAD) solutions for tuberculosis diagnostics: Technology landscape analysis,'' Geneva, Switzerland, 2021. [Online]. Available: \url{https://www.finddx.org/wp-content/uploads/2023/02/20210401_technology_landscape_computer_aided_tb_FV_EN.pdf}
 
 
 \bibitem{desita2026photographed}
