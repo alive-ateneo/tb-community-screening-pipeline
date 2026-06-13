@@ -77,7 +77,7 @@ Patricia Angela R. Abu~\orcidlink{0000-0002-8848-6644}}
 % ============================================================
 % ABSTRACT
 % ============================================================
-\begin{abstract}
+\begin{abstract} 
 Tuberculosis (TB) screening is widely done with computer-aided detection (CAD) systems. While TB CAD systems are highly accurate, community-based active case-finding (ACF) interventions face barriers in connectivity, compute, and interpretation. ACF often conducts high-volume screening in remote community locations where compute and connectivity are limited. The TB CAD system then reads each chest X-ray on-site for presumptive TB and outputs probability scores and visual overlays of abnormalities. However, these CAD outputs are primarily designed for radiologist reading, whereas ACF field teams often do not involve a radiologist and on-site readers without radiology training evaluate the CAD results. We present a TB screening pipeline that pairs lightweight classification and localization models with a natural-language description of model findings. For classification we introduce FlipR, a lightweight symmetry-gated network that achieves comparable performance to the strongest baselines despite using the fewest parameters. The classifier achieves performance above the World Health Organization's standards for specificity and sensitivity in TB CAD. For localization we introduce a custom backbone that increases accuracy of active TB lesions over base YOLO26. Results are output in natural language in line with radiologic report convention. The pipeline targets adult screening and is deliberately lightweight for deployment in resource-limited settings. However, the design and evaluation of the system was constrained by limited TB-specific samples in public datasets. Further work remains to evaluate deployment feasibility, detect specific radiographic findings, and evaluate natural language outputs through a radiologist reader study.
 \end{abstract}
 
@@ -115,7 +115,7 @@ While TB CAD systems are highly accurate, CAD workflow integration, local valida
 
 \textbf{Connectivity and compute are constrained in community sites.} ACF is often conducted in remote community sites, where connectivity may be unstable and laptops are used to run CAD software~\cite{stoptb_cad_guide}. Implementation studies in India and Vietnam document how workflow, connectivity, and interpretation conditions shape CAD deployment in the field~\cite{vijayan2023india_tb_cad, innes2023vietnam_tb_cad}.
 
-\textbf{CAD overlays are designed for radiologist readers, whereas ACF teams often do not have radiologists.} We review the six TB CAD products approved by WHO in 2025: qXR v4.0~\cite{qxr_docs}, CAD4TB v7~\cite{cad4tb_product}, Lunit INSIGHT CXR v3.1~\cite{lunit_product}, DrAid v2.4.4--6~\cite{draid_product}, Genki Edge v3.4.2~\cite{genki_product}, and InferRead DR Chest v1.0.1.1~\cite{inferread_product}~\cite{who_cad_approval_2025}. All provide visual localization through a boxed region, outline, or heatmap, but no product is known to describe its findings in natural language. CAD overlays are also found to overlap poorly with expert-identified regions and do not convey the contextual reasoning used during diagnosis~\cite{chen2022xai_human_centered}. A TB CAD acceptability study found that some users wanted to understand why the model reached its conclusions~\cite{hua2025qxr_acceptability}, and textual descriptions have been proposed as a more clinically meaningful complement to image markup~\cite{ihongbe2024xai_cxr, borys2023xai_beyond_saliency, siemens_llm_cxr_2023m gaube2024care_explain}. This presents unique constraints to ACF, which is often carried out by mobile field teams that include a radiographer but often no radiologist on-site~\cite{find_cad_landscape}. Despite chest X-ray interpretaion falling outside the radiographer's scope of practice, the radiographer in ACF decides whether to refer a patient for confirmatory testing using the radiograph, the patient's symptoms, and the CAD output~\cite{stoptb_cad_guide}.
+\textbf{CAD overlays are designed for radiologist readers, whereas ACF teams often do not have radiologists.} We review the six TB CAD products approved by WHO in 2025: qXR v4.0~\cite{qxr_docs}, CAD4TB v7~\cite{cad4tb_product}, Lunit INSIGHT CXR v3.1~\cite{lunit_product}, DrAid v2.4.4--6~\cite{draid_product}, Genki Edge v3.4.2~\cite{genki_product}, and InferRead DR Chest v1.0.1.1~\cite{inferread_product}~\cite{who_cad_approval_2025}. All provide visual localization through a boxed region, outline, or heatmap, but no product is known to describe its findings in natural language. CAD overlays are also found to overlap poorly with expert-identified regions and do not convey the contextual reasoning used during diagnosis~\cite{chen2022xai_human_centered}. A TB CAD acceptability study found that some users wanted to understand why the model reached its conclusions~\cite{hua2025qxr_acceptability}, and textual descriptions have been proposed as a more clinically meaningful complement to image markup~\cite{ihongbe2024xai_cxr, borys2023xai_beyond_saliency, siemens_llm_cxr_2023, gaube2024care_explain}. This presents unique constraints to ACF, which is often carried out by mobile field teams that include a radiographer but often no radiologist on-site~\cite{find_cad_landscape}. Despite chest X-ray interpretaion falling outside the radiographer's scope of practice, the radiographer in ACF decides whether to refer a patient for confirmatory testing using the radiograph, the patient's symptoms, and the CAD output~\cite{stoptb_cad_guide}.
 
 \subsection{Related Work}
 
@@ -143,7 +143,7 @@ This paper presents a lightweight TB screening pipeline that describes model fin
 \section{Tuberculosis Classification}
 \label{sec:tb_classification}
 
-The TB classification module flags each CXR as either healthy, sick non-TB, or TB as seen in Figure~\ref{fig:pipeline}.
+The TB classification module flags each CXR as either healthy, sick non-TB, or TB as shown in Figure~\ref{fig:pipeline}.
 
 \subsection{Dataset}
 
@@ -354,7 +354,14 @@ Both detectors localize confidently but find only about a quarter of the annotat
 \section{Natural-Language Explanation}
 \label{sec:explanation}
 
-The explanation module turns the detector's output into a structured natural-language summary a reader can act on without interpreting a boxed region or heatmap. An example output is seen in Figure \ref{fig:pipeline}.
+The explanation module turns the detector's output into a structured natural-language summary a reader can act on without interpreting a boxed region or heatmap. Example outputs are shown in Figures~\ref{fig:pipeline} and~\ref{fig:explanation_gallery}.
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{../figures/cxr_explanation_gallery.png}
+\caption{Example explanation outputs on TBX11K scans.}
+\label{fig:explanation_gallery}
+\end{figure*}
 
 The module follows the two-stage detector-to-text decomposition of Danu et al.~\cite{siemens_llm_cxr_2023}. However, because the detector here emits a closed TB vocabulary rather than open findings, we replace their proprietary detector and fine-tuned language model with the public models of this paper and a deterministic module, reserving a generative model for future work that uses specific radiographic findings. For current use, the deterministic explanation suffices and does not require significant additional memory or compute for resource-constrained settings.
 
