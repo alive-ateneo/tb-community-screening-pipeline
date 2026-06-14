@@ -18,17 +18,19 @@ ROOT = Path(__file__).resolve().parents[1] / "results" / "classification"
 CLASSES = ["healthy", "sick-non-tb", "tb"]
 TB_IDX = 2
 
-# Display name and parameter count (millions) used in the paper.
+# Display name and parameter count (millions) used in the paper. Counts are the trained
+# 3-class-head models (1000-class ImageNet classifier replaced by a 3-class head),
+# matching the paper's classification table and appendix.
 MODELS = [
-    ("flipnet",                       "FlipR",                       2.2),
-    ("efficientnet-b0",               "EfficientNet-B0",             5.3),
-    ("mobilenetv3-large",             "MobileNetV3-Large",           5.5),
-    ("draxnet-on-mobilenetv3-large",  "Drax-MobileNetV3-Large",      6.1),
-    ("densenet121",                   "DenseNet-121",                8.0),
-    ("resnet18",                      "ResNet-18",                  11.7),
-    ("draxnet",                       "DraxNet",                    17.0),
-    ("resnet50",                      "ResNet-50",                  25.6),
-    ("convnext-tiny",                 "ConvNeXt-Tiny",              28.6),
+    ("flipnet",                       "FlipR",                       2.8),
+    ("efficientnet-b0",               "EfficientNet-B0",             4.0),
+    ("mobilenetv3-large",             "MobileNetV3-Large",           4.2),
+    ("draxnet-on-mobilenetv3-large",  "Drax-MobileNetV3-Large",      4.8),
+    ("densenet121",                   "DenseNet-121",                7.0),
+    ("resnet18",                      "ResNet-18",                  11.2),
+    ("draxnet",                       "DraxNet",                    16.5),
+    ("resnet50",                      "ResNet-50",                  23.5),
+    ("convnext-tiny",                 "ConvNeXt-Tiny",              27.8),
 ]
 
 

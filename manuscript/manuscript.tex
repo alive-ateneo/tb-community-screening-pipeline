@@ -151,9 +151,9 @@ Classification and localization models are trained on a simplified redistributio
 
 TBX11K is selected because it is the largest public TB CXR dataset with a TB-specific sample large enough to train from scratch, expert bounding-box annotations, a sick non-TB class, and a demographic and class composition that reflect real-world clinical settings~\cite{liu2023tbx11k_pami}. TBX11K notes per-image patient age and sex, with most TB cases aged 20 to 60 and a male majority (72\% of TB X-rays), which is representative of the general population and consistent with real-world clinical scenarios~\cite{liu2023tbx11k_pami}.
 
-The official TBX11K test set is withheld for an online challenge, so we evaluate on the public validation set. Our results are therefore not directly comparable to SymFormer~\cite{liu2023tbx11k_pami} or other challenge entries on the private test set.
+The official TBX11K test set is withheld for an online challenge, so we use only the public trainval images. Our results are therefore not directly comparable to SymFormer~\cite{liu2023tbx11k_pami} or other challenge entries on the private test set.
 
-Classification uses the image-level labels shown in Table~\ref{tab:dataset_composition}, with 8,399 CXRs (3,800 healthy, 3,800 sick non-TB, 799 TB) and a 79\%/21\% train/validation split.
+Classification uses the image-level labels shown in Table~\ref{tab:dataset_composition}. The 8,400 public CXRs (3,800 healthy, 3,800 sick non-TB, 800 TB) are partitioned per class into train, validation, and test folds in a 70\%/15\%/15\% ratio. All reported classification metrics are computed on the held-out test fold of 1,260 CXRs (570 healthy, 570 sick non-TB, 120 TB).
 
 \begin{table}[!ht]
 \renewcommand{\arraystretch}{1.2}
@@ -162,17 +162,21 @@ Classification uses the image-level labels shown in Table~\ref{tab:dataset_compo
 \caption{TBX11K Dataset Composition (Image-level Labels) for Classification}
 \label{tab:dataset_composition}
 \small
-\begin{tabularx}{\columnwidth}{@{}l *{3}{C}@{}}
+\begin{tabularx}{\columnwidth}{@{}l *{4}{C}@{}}
 \toprule
-\textbf{Class} & \textbf{Train} & \textbf{Val} & \textbf{Total} \\
+\textbf{Class} & \textbf{Train} & \textbf{Val} & \textbf{Test} & \textbf{Total} \\
 \midrule
-Healthy        & 3,000 & 800   & 3,800 \\
-Sick non-TB    & 3,000 & 800   & 3,800 \\
-TB             & 599   & 200   & 799 \\
+Healthy        & 2,660 & 570   & 570   & 3,800 \\
+Sick non-TB    & 2,660 & 570   & 570   & 3,800 \\
+TB             & 560   & 120   & 120   & 800 \\
 \midrule
-Total          & 6,599 & 1,800 & 8,399 \\
+Total          & 5,880 & 1,260 & 1,260 & 8,400 \\
 \bottomrule
 \end{tabularx}
+\begin{tablenotes}[flushleft]
+\footnotesize
+\item Per-class 70/15/15 train/validation/test split.
+\end{tablenotes}
 \end{threeparttable}
 \end{table}
 
@@ -199,7 +203,7 @@ FlipR ($2.8$M parameters) inserts a \emph{FlipR} block between the second and th
 
 \subsection{Model Training}
 
-All models are trained from scratch with a fixed random seed, batch size $16$, $512\times512$ input, $100$ epochs, Adam optimizer at a fixed learning rate of $10^{-3}$, and unweighted cross-entropy loss. No hyperparameter tuning was done.
+All models are trained from scratch with a fixed random seed, batch size $16$, $512\times512$ input, $100$ epochs, Adam optimizer at a fixed learning rate of $10^{-3}$, and unweighted cross-entropy loss. No hyperparameter tuning was done. The checkpoint with the lowest validation loss is retained and evaluated on the held-out test fold.
 
 \subsection{Results}
 
@@ -292,7 +296,7 @@ We evaluate YOLO26 and a custom variant in which the detector's default feature 
 
 \subsection{Model Training}
 
-Localization uses the same training configuration as the classification models (Section~\ref{sec:tb_classification}).
+Localization uses the same training configuration as the classification models (Section~\ref{sec:tb_classification}). As in classification, the best checkpoint (selected by mAP) is retained and used for evaluation.
 
 \subsection{Results}
 

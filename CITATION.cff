@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+title: "Lightweight Tuberculosis Screening with Natural Language Explanations for Active Case Finding"
+type: software
+authors:
+  - given-names: "Irish Danielle"
+    family-names: Morales
+    orcid: "https://orcid.org/0009-0007-4409-5290"
+  - given-names: "Raphael B."
+    family-names: Alampay
+    orcid: "https://orcid.org/0000-0001-7498-8830"
+  - given-names: "Ruben A."
+    family-names: Saulog
+    orcid: "https://orcid.org/0009-0001-2103-6032"
+  - given-names: "Patricia Angela R."
+    family-names: Abu
+    orcid: "https://orcid.org/0000-0002-8848-6644"
+date-released: "2026"
+# repository-code: "https://github.com/<your-org>/tb-cxr-cad"   # set on release
+preferred-citation:
+  type: article
+  title: "Lightweight Tuberculosis Screening with Natural Language Explanations for Active Case Finding"
+  authors:
+    - given-names: "Irish Danielle"
+      family-names: Morales
+      orcid: "https://orcid.org/0009-0007-4409-5290"
+    - given-names: "Raphael B."
+      family-names: Alampay
+      orcid: "https://orcid.org/0000-0001-7498-8830"
+    - given-names: "Ruben A."
+      family-names: Saulog
+      orcid: "https://orcid.org/0009-0001-2103-6032"
+    - given-names: "Patricia Angela R."
+      family-names: Abu
+      orcid: "https://orcid.org/0000-0002-8848-6644"
+  year: 2026
