@@ -86,6 +86,7 @@ def build_parser() -> RichArgumentParser:
     parser.add_argument("--nbs", type=int, default=64)
     parser.add_argument("--warmup-epochs", type=float, default=3.0, dest="warmup_epochs")
     parser.add_argument("--amp", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--cache", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--loss-clip", type=float, default=None, dest="loss_clip")
     parser.add_argument("--seed", "--random-seed", type=int, default=None, dest="random_seed")
     parser.add_argument("--run-name", default=None, dest="run_name")
