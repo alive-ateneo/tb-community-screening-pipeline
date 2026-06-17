@@ -32,6 +32,14 @@ MODEL_ALIASES = {
     "yolov26.yaml": "yolo26.yaml",
     "draxnet-yolo26": "draxnet-yolo26.yaml",
     "draxnet-yolo26.yaml": "draxnet-yolo26.yaml",
+    "yolo11n": "yolo11.yaml",
+    "yolo11": "yolo11.yaml",
+    "yolo11.yaml": "yolo11.yaml",
+    "yolov11n": "yolo11.yaml",
+    "yolov11": "yolo11.yaml",
+    "yolov8n": "yolov8.yaml",
+    "yolov8": "yolov8.yaml",
+    "yolov8.yaml": "yolov8.yaml",
 }
 
 DATASET_ALIASES = {

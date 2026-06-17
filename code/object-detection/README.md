@@ -8,6 +8,10 @@ This stage localizes TB lesions on a chest X-ray and labels each as active or ob
 | --- | --- | --- |
 | `yolo26` | `yolo26` | base YOLO26 |
 | `draxnet-yolo26` | `draxnet-yolo26` | custom DraxNet backbone |
+| `yolov8n` | `yolov8n` | YOLOv8 nano baseline |
+| `yolo11n` | `yolo11n` | YOLO11 nano baseline |
+
+`yolov8n` and `yolo11n` are standard lightweight detection baselines. Like `yolo26`, the bare model name resolves to the nano scale (Ultralytics reports "Assuming scale='n'"). They follow the same from-scratch, 100-epoch, 512x512 protocol. Their `results/` are not yet populated.
 
 ### Running a model
 

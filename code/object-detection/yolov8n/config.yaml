@@ -1,0 +1,10 @@
+# Reproducibility config for YOLOv8n (object detection, Ultralytics via mlx).
+model: yolov8n            # mlx --model identifier; resolves to yolov8.yaml at nano scale
+mode: object_detection
+dataset: ../../../dataset/object-detection/dataset.yaml
+epochs: 100                   # matches the YOLO26 protocol; not yet run
+batch_size: 16               # matches the YOLO26 protocol
+image_size: 512              # matches the YOLO26 protocol (height/width)
+device: cuda
+seed: 42
+checkpoint: best-validation   # ultralytics best.pt (--use-best default)

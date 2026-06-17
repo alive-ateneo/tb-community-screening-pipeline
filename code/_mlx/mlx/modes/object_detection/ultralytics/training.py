@@ -100,6 +100,7 @@ def train_object_detection(config: dict[str, Any]):
         "plots": bool(config.get("plots", True)),
         "pretrained": overrides["pretrained"],
         "project": str(project_dir),
+        "cache": bool(config.get("cache", False)),
     }
     if auto_resume_checkpoint is not None:
         train_kwargs["resume"] = str(auto_resume_checkpoint)
