@@ -72,6 +72,7 @@ OD = REPO_ROOT / "code" / "object-detection"
 # so detection sizes are ~= params x 2 bytes (half the classification rule).
 CHECKPOINTS = {
     "classification": {
+        "LightTBNet": CLS / "lighttbnet/results/lighttbnet.pth",
         "FlipR": CLS / "flipr/experiments/results/best.ckpt",
         "EfficientNet-B0": CLS / "efficientnet-b0/results/efficientnet_b0.pth",
         "MobileNetV3-Large": CLS / "mobilenetv3-large/results/mobilenet_v3_large.pth",

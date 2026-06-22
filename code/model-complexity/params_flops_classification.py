@@ -74,6 +74,7 @@ def build_models() -> dict:
 
     draxnet = importlib.import_module("mlx.modes.image_classification.models.draxnet")
     drax_mobilenet = importlib.import_module("mlx.modes.image_classification.models.drax_mobilenet")
+    lighttbnet = importlib.import_module("mlx.modes.image_classification.models.lighttbnet")
     standard = importlib.import_module("mlx.modes.image_classification.models.standard")
     from tb_classifier.models.classifier import TBClassifier  # FlipR
 
@@ -84,6 +85,9 @@ def build_models() -> dict:
 
     # Ordered roughly by parameter count (smallest first).
     return {
+        "LightTBNet": lambda: lighttbnet.build_lighttbnet(
+            num_classes=NUM_CLASSES, colored=True, pretrained=False, config={}
+        ),
         "FlipR": lambda: TBClassifier(num_classes=NUM_CLASSES, pretrained=False),
         "EfficientNet-B0": lambda: std("efficientnet_b0"),
         "MobileNetV3-Large": lambda: std("mobilenet_v3_large"),

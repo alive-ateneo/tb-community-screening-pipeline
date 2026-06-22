@@ -12,7 +12,7 @@ that Ultralytics' own `model.info()` prints "GFLOPs" that are already doubled
 those values are twice the MACs reported here. We count MACs directly with
 fvcore to keep one convention across both modules.
 
-Inputs: 1 x 3 x 512 x 512 (the training resolution), nc = 2 detection classes
+Inputs: 1 x 3 x 256 x 256 (the training resolution), nc = 2 detection classes
 (ActiveTuberculosis, ObsoletePulmonaryTuberculosis), randomly initialised
 weights. The model graphs are built from the same YAML configs the training
 pipeline resolves (`yolo26.yaml`, `draxnet-yolo26.yaml`) in the ralampay
@@ -34,7 +34,7 @@ import warnings
 warnings.filterwarnings("ignore")
 logging.getLogger("fvcore.nn.jit_analysis").setLevel(logging.ERROR)
 
-IMG = 512  # training resolution
+IMG = 256  # detection training resolution (imgsz 256, matched across all four detectors)
 NC = 2  # ActiveTuberculosis, ObsoletePulmonaryTuberculosis
 
 # (display name, model YAML the pipeline resolves via MODEL_ALIASES)
