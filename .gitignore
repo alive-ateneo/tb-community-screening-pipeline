@@ -34,6 +34,7 @@ venv/
 dataset/classification/
 dataset/object-detection/images/
 dataset/object-detection/labels/
+.tmp
 
 # Trained weights and run artifacts
 *.pth
