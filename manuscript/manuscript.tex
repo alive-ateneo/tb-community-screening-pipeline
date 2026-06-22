@@ -69,7 +69,7 @@
 \author{\IEEEauthorblockN{
 Irish Danielle Morales~\orcidlink{0009-0007-4409-5290},
 Raphael B. Alampay~\orcidlink{0000-0001-7498-8830},
-Ruben A. Saulog~\orcidlink{0009-0001-2103-6032} and
+Ruben A. Saulog~\orcidlink{0009-0001-2103-6032}, and
 Patricia Angela R. Abu~\orcidlink{0000-0002-8848-6644}}
 \IEEEauthorblockA{Department of Information Systems and Computer Science, Ateneo de Manila University, Quezon City, Philippines}}
 
@@ -78,8 +78,8 @@ Patricia Angela R. Abu~\orcidlink{0000-0002-8848-6644}}
 % ============================================================
 % ABSTRACT
 % ============================================================
-\begin{abstract} 
-Tuberculosis (TB) screening increasingly relies on computer-aided detection (CAD) systems, which are accurate but output a probability score and a visual overlay designed for radiologist reading. Community-based active case finding (ACF) screens at-risk populations at remote sites that often lack a radiologist, a GPU, and reliable connectivity, leaving a non-radiologist to act on outputs meant for an expert. We present a TB screening pipeline for adult community ACF whose contribution is the integrated system, not any single model: it runs end-to-end on a commodity CPU without a GPU or a network connection, and it replaces the radiologist-oriented score and overlay with a faithful natural-language report that a non-radiologist can act on. Among ten classifiers we evaluate, FlipR is a parameter-efficient symmetry-gated network that matches the strongest baselines and transfers best to unseen acquisition sites. On the held-out test set it exceeds the World Health Organization (WHO) target sensitivity and specificity, though at an argmax operating point on a curated benchmark not directly comparable to the WHO 2025 product evaluation. For localization we benchmark lightweight detectors for both active and latent TB, the latter underdetected in prior work, and recommend a compact off-the-shelf detector that reaches near-best localization accuracy at far smaller size. The report generator is faithful by construction, asserting only what the models detected and following radiologic report convention. The deployed configuration completes a study in about 370 ms on one CPU thread without a GPU, and compute is not the cost driver for TB CAD: carrying no per-study license, the pipeline adds effectively zero marginal cost, a structural advantage over the licensing and imaging-hardware costs that dominate commercial systems. Limited TB-specific samples in public datasets constrained both design and evaluation, and our evaluation rests on a single curated public dataset that is easier than the multi-source settings ACF targets. Further work remains to characterize latency on constrained field hardware, detect specific radiographic findings, and assess the reports through a radiologist reader study.
+\begin{abstract}
+Community-based active case finding (ACF) for tuberculosis (TB) screens at-risk populations outside health facilities, often using computer-aided detection (CAD) software. ACF is often conducted at remote sites with unreliable network connectivity, on laptops with limited computational power, and with no on-site radiologist to interpret chest X-rays. We present an open-source TB screening pipeline for adult community ACF that runs offline on a commodity laptop CPU and outputs a report for non-radiologist readers. The pipeline runs end-to-end in about 370 milliseconds on the evaluated CPU. Because the pipeline is open-source, it is cheaper compared to the per-study license fees and hardware costs of commercially available TB CAD systems. It further detects both active and latent TB, the latter underdetected in prior work. We evaluate ten classifiers and four detectors for both performance and computational cost, testing the classifiers on three TB chest X-ray datasets (TBX11K, Montgomery, and Shenzhen) against the World Health Organization (WHO) targets for sensitivity and specificity in TB CAD. Although the classifiers meet the WHO targets on in-distribution data, performance collapses zero-shot on out-of-distribution data and recovers only slightly after calibration, consistent with WHO guidance that CAD systems be recalibrated for each community site. Because public chest X-ray datasets hold few TB-specific samples, further work remains to train and evaluate the pipeline on data spanning multiple demographics from ACF sites. Further work also remains to measure latency on field hardware, detect specific radiographic findings for a full radiologist report, and assess the generated reports through radiologist and non-radiologist reader studies.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -93,20 +93,20 @@ Tuberculosis, Computer-Aided Detection, Chest X-ray, Medical Imaging, Community-
 % ============================================================
 \section{Introduction}
 
-Tuberculosis (TB) causes more deaths than any other infectious disease worldwide~\cite{who_global_tb_2024}. It is caused by airborne \textit{Mycobacterium tuberculosis} and primarily affects the lungs, presenting as pulmonary TB~\cite{pai2016tb}. Pulmonary TB is typically diagnosed by assessing symptom history, chest radiography, and bacteriological confirmation. A clinician, typically a general practitioner or pulmonologist, interviews the patient for symptoms and may request a chest X-ray (CXR), which a radiologist interprets for abnormalities indicative of TB and reports in a radiographic report. A patient whose symptoms or report indicate TB has presumptive TB. Confirmation is done through smear microscopy, culture, or rapid diagnostics such as Xpert MTB/RIF or Truenat, after which the patient has bacteriologically confirmed TB and begins treatment.
+Tuberculosis (TB) causes more deaths than any other infectious disease worldwide. It is caused by airborne \textit{Mycobacterium tuberculosis} and typically affects the lungs, presenting as pulmonary TB~\cite{who_global_tb_2024},~\cite{pai2016tb}. Pulmonary TB is typically diagnosed by assessing symptom history, chest radiography, and bacteriological tests. In facility screening, a symptomatic patient is interviewed by a clinician in a healthcare facility for symptoms. The clinician may request a chest X-ray (CXR) for the patient, which a radiologist interprets for abnormalities indicative of TB and writes in a radiographic report~\cite{who_cad_approval_2025}. A patient whose symptoms or report indicate TB has presumptive TB. Bacteriological confirmation is done through smear microscopy, culture, or rapid molecular tests. Patients with bacteriologically confirmed TB then begin treatment~\cite{who_global_tb_2024}.
 
-Community-based active case finding (ACF) refers to an intervention where teams screen at-risk populations in community sites or through home visits, rather than waiting for symptomatic patients to present at a clinic~\cite{who_screening_2021}. Figure~\ref{fig:acf} shows a representative ACF workflow, where a field team carries out screening and triage on the community site and an off-site laboratory performs confirmation.
+In community-based active case finding (ACF), teams screen at-risk populations in community sites rather than waiting for symptomatic patients to present at a healthcare facility~\cite{who_screening_2021},~\cite{who_cad_approval_2025}. Figure~\ref{fig:acf} shows an ACF workflow where TB screening and triage is conducted on the community site.
 
 \subsection{Computer-aided Detection of Tuberculosis}
 
-TB computer-aided detection (CAD) systems are widely used in both clinical settings and ACF. The World Health Organization (WHO) endorsed CAD as an alternative to human readers for patients aged 15 and older, and in 2025 approved six commercial products as meeting its TB screening performance standards~\cite{who_cad_approval_2025}. CAD assistance has been shown to improve radiologist performance and let non-radiologists match radiologists~\cite{anderson2024deep}, and several reviews report CAD accuracy approaching WHO targets across populations~\cite{ahmad2023systematic, scott2024tb_cad_africa, han2025tb_meta, marquez2025philippines}.
+Computer-aided detection (CAD) systems are widely used in both faciity screening and community-based ACF for TB. In 2025, the World Health Organization (WHO) 2025 approved six commercial products as meeting its TB screening performance standards~\cite{who_cad_approval_2025}. CAD assistance has been shown to improve radiologist performance and allow non-radiologist performance to match radiologists~\cite{anderson2024deep}, and several reviews report CAD accuracy approaching WHO targets across demographics~\cite{ahmad2023systematic, scott2024tb_cad_africa, han2025tb_meta, marquez2025philippines}.
 
-In ACF, WHO positions TB CAD as a screening and triage tool that selects who proceeds to confirmatory testing~\cite{who_cad_policy_2021, who_screening_2021}, and because CAD replaces the human reader, community ACF teams commonly include no radiologist~\cite{stoptb_cad_guide, find_cad_landscape}. Despite WHO endorsement, clinicians across countries still value CAD as a complement to, not a replacement for, expert reading~\cite{creswell2023user_perspectives_tb}.
+WHO endorsed CAD as an alternative to human readers for patients aged 15 and older~\cite{who_cad_approval_2025}. Because CAD replaces the human reader, ACF field teams commonly do not include a radiologist~\cite{stoptb_cad_guide, find_cad_landscape}. Despite WHO endorsement, however, clinicians across countries still value CAD as a complement to, rather than a replacement for, expert reading~\cite{creswell2023user_perspectives_tb}.
 
 \begin{figure*}[!t]
     \centering
     \includegraphics[width=\textwidth]{../figures/ACF Workflow.png}
-    \caption{A TB community active case-finding (ACF) workflow. The CAD system in ACF is often used by a radiographer rather than a radiologist.}
+    \caption{A sample community-based ACF workflow for TB screening. The CAD system in ACF is often used by a radiographer rather than a radiologist.}
     \label{fig:acf}
 \end{figure*}
 
@@ -114,29 +114,29 @@ In ACF, WHO positions TB CAD as a screening and triage tool that selects who pro
 
 While TB CAD systems are highly accurate, CAD workflow integration, local validation, and human factors are relatively under-studied~\cite{kallianos2019review, ahmad2023systematic}. ACF, in particular, faces barriers in connectivity, compute, and interpretation:
 
-\textbf{Connectivity and compute are constrained in community sites.} ACF is often conducted in remote sites where connectivity is unstable and CAD software runs on laptops~\cite{stoptb_cad_guide}. Implementation studies in India and Vietnam document how these conditions shape field deployment~\cite{vijayan2023india_tb_cad, innes2023vietnam_tb_cad}.
+\textbf{Connectivity and compute are constrained in community sites.} ACF is often conducted in remote sites where connectivity is unstable and CAD software runs on laptops~\cite{stoptb_cad_guide}. Several implementation studies document how these constraints shape field deployment~\cite{stoptb_cad_guide, vijayan2023india_tb_cad, innes2023vietnam_tb_cad}.
 
-\textbf{CAD overlays are designed for radiologist readers, whereas ACF teams often do not have radiologists.} We review the six TB CAD products approved by WHO in 2025: qXR v4.0~\cite{qxr_docs}, CAD4TB v7~\cite{cad4tb_product}, Lunit INSIGHT CXR v3.1~\cite{lunit_product}, DrAid v2.4.4--6~\cite{draid_product}, Genki Edge v3.4.2~\cite{genki_product}, and InferRead DR Chest v1.0.1.1~\cite{inferread_product}~\cite{who_cad_approval_2025}. All deliver TB screening results as a probability score with visual localization through a boxed region, outline, or heatmap. Some products additionally generate broader radiology reports spanning many chest findings~\cite{draid_product, qxr_docs}, but these target radiologist reading, and the TB screening output itself remains a score and an overlay. CAD overlays also overlap poorly with expert-identified regions and omit the contextual reasoning used in diagnosis~\cite{chen2022xai_human_centered}, and textual descriptions have been proposed as a more clinically meaningful complement to image markup~\cite{hua2025qxr_acceptability, ihongbe2024xai_cxr, borys2023xai_beyond_saliency, siemens_llm_cxr_2023, gaube2024care_explain}. Despite chest X-ray interpretation falling outside the radiographer's scope of practice, the radiographer in ACF decides whether to refer a patient for confirmatory testing using the radiograph, the patient's symptoms, and the CAD output~\cite{find_cad_landscape, stoptb_cad_guide}. The WHO 2025 evaluation further notes that the average reader in resource-limited settings is likely less proficient than the expert radiologists these products were benchmarked against~\cite{who_cad_approval_2025}.
+\textbf{CAD overlays are designed for radiologist readers, whereas ACF teams often do not have radiologists.} We review the six TB CAD products approved by WHO in 2025~\cite{who_cad_approval_2025}: qXR v4.0~\cite{qxr_docs}, CAD4TB v7~\cite{cad4tb_product}, Lunit INSIGHT CXR v3.1~\cite{lunit_product}, DrAid v2.4.4--6~\cite{draid_product}, Genki Edge v3.4.2~\cite{genki_product}, and InferRead DR Chest v1.0.1.1~\cite{inferread_product}. All products output probability scores for abnormalities with visual localization through bounding boxes, outlines, or heatmaps. However, these are primarily designed for radiologists, rather than for non-radiologist readers in ACF settings. WHO further notes that the average reader in resource-limited settings is likely less proficient than the expert radiologists in CAD evaluation~\cite{who_cad_approval_2025}. Despite CXR interpretation falling outside the radiographer's scope of practice, the radiographer in ACF decides whether to refer a patient for confirmatory testing using the patient's symptoms and the CAD output~\cite{find_cad_landscape, stoptb_cad_guide}. CAD overlays also overlap poorly with expert-identified regions and omit the contextual reasoning used in diagnosis~\cite{chen2022xai_human_centered}, hence textual descriptions have been proposed as a clinically meaningful complement to CAD overlays~\cite{hua2025qxr_acceptability, ihongbe2024xai_cxr, borys2023xai_beyond_saliency, siemens_llm_cxr_2023, gaube2024care_explain}.
 
 \subsection{Related Work}
 
-TB CAD models with lightweight memory and compute have been explored in previous studies, from LightTBNet at about 1.5 million parameters~\cite{capellan2023lighttbnet} to lightweight hybrid networks~\cite{owda2025hybrid_tb}, building on edge-deployed chest X-ray models for related conditions~\cite{benmalek2025edge, chauhan2024covid_edge}. LightTBNet was validated for binary TB classification on Montgomery and Shenzhen-style datasets rather than the three-class TBX11K task evaluated here, so we retrain its architecture under our protocol as the smallest classifier in our comparison. Some existing commercial CAD systems require a dedicated CAD box or separate CAD laptop to support offline screening due to compute constraints~\cite{stoptb_cad_guide}.
+TB CAD models with lightweight memory and compute have been explored in previous studies, from LightTBNet at about 1.5M parameters~\cite{capellan2023lighttbnet} to lightweight hybrid networks~\cite{owda2025hybrid_tb}, building on edge-deployed CXR models for related conditions~\cite{benmalek2025edge, chauhan2024covid_edge}. Due to compute constraints in ACF, some existing commercial CAD systems require a dedicated CAD box or separate CAD laptop to support offline screening~\cite{stoptb_cad_guide}.
 
-Related literature has also explored models that generate natural-language descriptions of findings. In a research prototype, Siemens Healthineers paired a combined classification-localization model~\cite{ghesu2022ssl_medical} with a domain-adapted LLM to generate CXR findings~\cite{siemens_llm_cxr_2023}. General medical vision-language models such as LLaVA-Med~\cite{li2023llava_med} and CXR-LLaVA~\cite{lee2024cxr_llava} demonstrate image-conditioned radiology text generation~\cite{bazi2024vlm_review}. However, most work remains in general chest X-ray detection, with few specific to tuberculosis.
+Related literature has also explored models that generate natural-language descriptions of findings. In a research prototype, Siemens Healthineers paired a combined classification-localization model~\cite{ghesu2022ssl_medical} with a domain-adapted LLM to generate CXR findings~\cite{siemens_llm_cxr_2023}. General medical vision-language models such as LLaVA-Med~\cite{li2023llava_med} and CXR-LLaVA~\cite{lee2024cxr_llava} demonstrate image-conditioned radiology text generation~\cite{bazi2024vlm_review}. However, prior work remains in general chest X-ray detection, with few known to be specific to TB. Of the few TB-specific studies, generative models are used~\cite{ganapthy2025tb_vlm} that carry hallucination risk and heavier inference than a screening pipeline that must run offline on a commodity CPU.
+
+Prior TB CAD systems validated for ACF and non-radiologist screening, such as CAD4TB~\cite{cad4tb_product}, qXR~\cite{qxr_docs}, and Lunit INSIGHT CXR~\cite{lunit_product}, are closed-source commercial products with per-study license and imaging-hardware costs and output specific radiographic findings for radiologist readers. To our knowledge, no prior work develops an open-source TB CAD pipeline that runs offline on a laptop CPU with report generation designed primarily for non-radiologist readers.
 
 \subsection{Contributions}
 
-This paper's central contribution is an integrated TB screening pipeline for community ACF, not any single model. The pipeline targets the field setting the preceding challenges describe: no radiologist on-site, often no GPU, and unreliable connectivity. It replaces the radiologist-oriented probability score and visual overlay with a faithful natural-language report that a non-radiologist reader can act on. We make three system-level contributions:
+This study presents a lightweight TB screening pipeline for community ACF where there is no on-site radiologist, no GPU, and unreliable connectivity. We present the following:
 
 \begin{itemize}
-    \item We assemble an end-to-end screening pipeline that runs offline on a commodity laptop CPU, completing a study in about 370 ms without a GPU or a network connection, within the compute and connectivity limits of community ACF sites.
-    \item We transform the system output from the radiologist-oriented score and overlay into a deterministic, faithful-by-construction natural-language report that asserts only what the models detected, so a non-radiologist reader receives an actionable result.
-    \item We show through a cost analysis that compute is not the cost driver for TB CAD: the pipeline carries no per-study license and adds effectively zero marginal cost per study, a structural advantage over the licensing and imaging-hardware costs of commercial systems.
+    \item A screening pipeline that runs offline on a commodity laptop CPU, completing a study in about 370 ms for community ACF constraints.
+    \item A template-based natural-language report for non-radiologist ACF readers to base referral decisions.
+    \item Open-sourced TB CAD pipeline as a cheaper alternative to per-study licensing and hardware costs of commercial systems.
+    \item Evaluation of four detectors for both computational cost and detection of active \& latent TB, where latent TB is underdetected in prior work.
+    \item Evaluation of ten classifiers against WHO TB CAD targets, measured in-distribution on TBX11K and out-of-distribution on Montgomery and Shenzhen datasets.
 \end{itemize}
-
-The models inside the pipeline are selected under these field constraints rather than for benchmark accuracy. Among ten lightweight classifiers we evaluate, FlipR is a parameter-efficient symmetry-gated network that matches the strongest baselines and transfers best to unseen acquisition sites. Among lightweight detectors for active and latent TB localization, the latter underdetected in prior work, we report the honest negative result that a larger custom backbone does not surpass a compact off-the-shelf detector.
-
-We evaluate the pipeline on a single public dataset for adult screening and establish on-device feasibility on a commodity CPU, and we identify a field-population reader study and field-hardware characterization as the necessary next steps.
 
 % ============================================================
 % II. MATERIALS AND METHODS
@@ -146,11 +146,11 @@ We evaluate the pipeline on a single public dataset for adult screening and esta
 \begin{figure}[!t]
     \centering
     \includegraphics[width=\linewidth]{../figures/pipeline.png}
-    \caption{Overview of the TB CAD pipeline: image classification, TB lesion detection, and report generation.}
+    \caption{Overview of the TB CAD pipeline.}
     \label{fig:pipeline}
 \end{figure}
 
-This paper presents a lightweight TB screening pipeline that describes model findings in natural language, as shown in Figure \ref{fig:pipeline}. A CXR (DICOM or standard image format) is ingested from the screening unit's X-ray or uploaded directly, then scored by the TB classification module. For images flagged as TB, the object detection module identifies active and latent TB regions. The classification and detection outputs are passed to the report generation module, which produces a natural-language report of the findings based on radiologic report convention. All three stages are lightweight, for screening where no radiologist and often no GPU is present.
+An overview of the TB CAD pipeline is shown in Figure \ref{fig:pipeline}. A CXR (in DICOM or standard image format) is ingested from the screening unit's X-ray or uploaded directly, then scored by the TB classification module. For images flagged as TB, the object detection module identifies active and latent TB regions. The classification and detection outputs are passed to the report generation module, which outputs a natural-language report of the detected TB regions in a format similar to radiologic convention. Report findings consist of active TB and latent TB lesions rather than specific radiographic findings typical to radiologic reports because the report is designed for non-radiologist readers. All three stages are lightweight for ACF screening where no radiologist and often no GPU is present.
 
 % ============================================================
 % TUBERCULOSIS CLASSIFICATION
@@ -164,11 +164,9 @@ The TB classification module flags each CXR as either healthy, sick non-TB, or T
 
 Classification and object detection models are trained on a simplified redistribution\footnote{\url{https://www.kaggle.com/datasets/vbookshelf/tbx11k-simplified}} of TBX11K~\cite{liu2020tbx11k}, a public CXR dataset with image-level labels (\textit{healthy}, \textit{sick non-TB}, \textit{TB}) and bounding-box-level labels (\textit{active-TB}, \textit{latent-TB}).
 
-TBX11K is selected because it is the largest public TB CXR dataset with a TB-specific sample large enough to train from scratch, expert bounding-box annotations, a sick non-TB class, and a demographic and class composition that reflect real-world clinical settings~\cite{liu2023tbx11k_pami}. Its image-level labels are established by diagnostic microbiology and reviewed by experienced radiologists~\cite{liu2023tbx11k_pami}, the same microbiological reference standard used in the WHO 2025 product evaluation~\cite{who_cad_approval_2025}, rather than by image reading alone. TBX11K notes per-image patient age and sex, with most TB cases aged 20 to 60 and a male majority (72\% of TB X-rays), which is representative of the general population and consistent with real-world clinical scenarios~\cite{liu2023tbx11k_pami}.
+TBX11K is selected because it is the largest public TB CXR dataset with a TB-specific sample large enough to train from scratch, expert bounding-box annotations, a sick non-TB class, and a demographic and class composition that reflect real-world clinical settings~\cite{liu2023tbx11k_pami}. Its image-level labels are established by diagnostic microbiology~\cite{liu2023tbx11k_pami}, the reference standard for TB confirmation~\cite{liu2023tbx11k_pami, who_cad_approval_2025}. TBX11K is composed mostly of TB cases aged 20-60, predominantly among males (72\% of TB X-rays), which is representative of real-world TB distribution~\cite{liu2023tbx11k_pami}.
 
-The official TBX11K test set is withheld for an online challenge, so we use only the public trainval images. Our results are therefore not directly comparable to SymFormer~\cite{liu2023tbx11k_pami} or other challenge entries on the private test set.
-
-Classification uses the image-level labels shown in Table~\ref{tab:dataset_composition}. The 8,400 public CXRs (3,800 healthy, 3,800 sick non-TB, 800 TB) are partitioned per class into train, validation, and test folds in a 70\%/15\%/15\% ratio. All reported classification metrics are computed on the held-out test fold of 1,260 CXRs (570 healthy, 570 sick non-TB, 120 TB).
+The official TBX11K test set is withheld for an online challenge, so we use only the public trainval images. Our results are therefore not directly comparable to SymFormer~\cite{liu2023tbx11k_pami} or other challenge entries on the private test set. The data used is made available in the Data and Code Availability section of this study.
 
 \begin{table}[!ht]
 \renewcommand{\arraystretch}{1.2}
@@ -188,17 +186,14 @@ TB             & 560   & 120   & 120   & 800 \\
 Total          & 5,880 & 1,260 & 1,260 & 8,400 \\
 \bottomrule
 \end{tabularx}
-\begin{tablenotes}[flushleft]
-\footnotesize
-\item Per-class 70/15/15 train/validation/test split.
-\end{tablenotes}
 \end{threeparttable}
 \end{table}
 
+Classification uses the image-level labels shown in Table~\ref{tab:dataset_composition}. The 8,400 public CXRs (3,800 healthy, 3,800 sick non-TB, 800 TB) are partitioned per class into train, validation, and test folds in a 70\%/15\%/15\% ratio. All reported classification metrics are computed on the held-out test fold of 1,260 CXRs (570 healthy, 570 sick non-TB, 120 TB).
 
 \subsection{Data Preprocessing}
 
-Classification models are trained without preprocessing or data augmentation. TBX11K CXRs are acquired under a standardized posteroanterior protocol and are largely uniform in pose, so aggressive augmentation risks introducing distribution shift.
+Classification models are trained without preprocessing or data augmentation. TBX11K CXRs are acquired under a standardized posteroanterior protocol and are largely uniform in pose, so   augmentation risks introducing distribution shift.
 
 \subsection{Model Architecture}
 
@@ -230,27 +225,27 @@ All models are trained from scratch with a fixed random seed, batch size $16$, $
 \label{tab:classification_results}
 \small
 \setlength{\tabcolsep}{2.2pt}
-\begin{tabular}{@{}l c c c c c c c c c c@{}}
+\begin{tabularx}{\textwidth}{@{}l *{10}{C}@{}}
 \toprule
 \multirow{2}{*}{\textbf{Model}} & \multirow{2}{*}{\textbf{AUC$_{\text{TB}}$}} & \multicolumn{7}{c}{\textbf{Classification metrics (\%)}} & \multicolumn{2}{c}{\textbf{Computational metrics}} \\
 \cmidrule(lr){3-9}\cmidrule(lr){10-11}
- & & \textbf{Acc} & \textbf{Sens} & \textbf{Spec} & \textbf{Spec@90sens} & \textbf{Prec} & \textbf{Rec} & \textbf{F1} & \textbf{Params} & \textbf{MACs} \\
+ & & \textbf{Acc} & \textbf{Sens} & \textbf{Spec} & \textbf{Prec} & \textbf{Rec} & \textbf{F1} & \textbf{\shortstack{Spec@90\\Sens}} & \textbf{Params} & \textbf{MACs} \\
 \midrule
-LightTBNet~\cite{capellan2023lighttbnet} & 0.9994 & 98.89 & 94.17 & \textbf{99.82} & 99.82 & 98.72 & 97.65 & 98.17 & \textbf{1.3M} & 14.1G \\
-FlipR                  & 0.9987 & 98.81 & 94.17 & 99.56 & 99.82 & 98.01 & 97.59 & 97.79 & 2.8M & 7.4G \\
-EfficientNet-B0~\cite{tan2019efficientnet} & \textbf{0.9995} & 98.89 & 95.00 & 99.65 & \textbf{100.00} & 98.29 & 97.87 & 98.07 & 4.0M & 2.1G \\
-MobileNetV3-Large~\cite{howard2019mobilenetv3} & \textbf{0.9995} & \textbf{99.21} & \textbf{96.67} & \textbf{99.82} & \textbf{100.00} & \textbf{98.97} & \textbf{98.54} & \textbf{98.75} & 4.2M & \textbf{1.2G} \\
-Drax-MobileNetV3-Large & 0.9989 & 98.81 & 95.00 & 99.65 & \textbf{100.00} & 98.23 & 97.81 & 98.02 & 4.8M & 1.3G \\
-DenseNet-121~\cite{huang2017densenet} & 0.9975 & 98.57 & 92.50 & 99.56 & 99.82 & 97.81 & 96.97 & 97.38 & 7.0M & 15.0G \\
-ResNet-18~\cite{he2016resnet} & 0.9982 & 98.17 & 93.33 & 99.21 & 99.91 & 96.71 & 96.90 & 96.80 & 11.2M & 9.5G \\
-DraxNet                & 0.9988 & 98.41 & 95.00 & 99.47 & \textbf{100.00} & 97.51 & 97.51 & 97.51 & 16.5M & 10.9G \\
-ResNet-50~\cite{he2016resnet} & 0.9978 & 97.70 & 92.50 & 99.47 & 99.47 & 96.95 & 96.33 & 96.63 & 23.5M & 21.5G \\
-ConvNeXt-Tiny~\cite{liu2022convnext} & 0.9952 & 97.14 & 95.00 & 97.98 & 99.82 & 93.63 & 96.58 & 94.97 & 27.8M & 23.4G \\
+LightTBNet~\cite{capellan2023lighttbnet} & 0.9994 & 98.89 & 94.17 & \textbf{99.82} & 98.72 & 97.65 & 98.17 & 99.82 & \textbf{1.3M} & 14.1G \\
+FlipR                  & 0.9987 & 98.81 & 94.17 & 99.56 & 98.01 & 97.59 & 97.79 & 99.82 & 2.8M & 7.4G \\
+EfficientNet-B0~\cite{tan2019efficientnet} & \textbf{0.9995} & 98.89 & 95.00 & 99.65 & 98.29 & 97.87 & 98.07 & \textbf{100.00} & 4.0M & 2.1G \\
+MobileNetV3-Large~\cite{howard2019mobilenetv3} & \textbf{0.9995} & \textbf{99.21} & \textbf{96.67} & \textbf{99.82} & \textbf{98.97} & \textbf{98.54} & \textbf{98.75} & \textbf{100.00} & 4.2M & \textbf{1.2G} \\
+Drax-MobileNetV3-Large & 0.9989 & 98.81 & 95.00 & 99.65 & 98.23 & 97.81 & 98.02 & \textbf{100.00} & 4.8M & 1.3G \\
+DenseNet-121~\cite{huang2017densenet} & 0.9975 & 98.57 & 92.50 & 99.56 & 97.81 & 96.97 & 97.38 & 99.82 & 7.0M & 15.0G \\
+ResNet-18~\cite{he2016resnet} & 0.9982 & 98.17 & 93.33 & 99.21 & 96.71 & 96.90 & 96.80 & 99.91 & 11.2M & 9.5G \\
+DraxNet                & 0.9988 & 98.41 & 95.00 & 99.47 & 97.51 & 97.51 & 97.51 & \textbf{100.00} & 16.5M & 10.9G \\
+ResNet-50~\cite{he2016resnet} & 0.9978 & 97.70 & 92.50 & 99.47 & 96.95 & 96.33 & 96.63 & 99.47 & 23.5M & 21.5G \\
+ConvNeXt-Tiny~\cite{liu2022convnext} & 0.9952 & 97.14 & 95.00 & 97.98 & 93.63 & 96.58 & 94.97 & 99.82 & 27.8M & 23.4G \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \begin{tablenotes}[flushleft]
 \footnotesize
-\item AUC$_{\text{TB}}$ is the area under the ROC curve for the TB class. Sensitivity is recall for the TB class. Specificity is recall for the non-TB class (healthy and sick non-TB combined). Precision, recall, and F1 are averaged across the three classes (healthy, sick non-TB, TB). Params is the trainable parameter count. MACs is the number of multiply-accumulate operations for one $512\times512$ forward pass, and FLOPs are twice this. Spec@90sens is the highest specificity at sensitivity at least $90\%$, the single operating point the WHO 2025 product evaluation scores~\cite{who_cad_approval_2025}, computed on the binary TB projection with $P(\text{TB})$ positive and healthy and sick non-TB pooled as negative. It saturates because this curated, single-source, class-balanced test set is far easier than the multi-region WHO libraries, on which approved products reach only $26$ to $56\%$ specificity at $90\%$ sensitivity, so it is a format restatement rather than a WHO pass.
+\item AUC$_{\text{TB}}$ is the area under the ROC curve for the TB class. Sensitivity is recall for the TB class. Specificity is recall for the non-TB class (healthy and sick non-TB combined). Precision, recall, and F1 are averaged across the three classes (healthy, sick non-TB, TB). Params is the trainable parameter count. MACs is the number of multiply-accumulate operations for one forward pass. FLOPs are twice MACs. Spec@90Sens is the specificity when sensitivity is set to $90\%$, which is the operating point calibration used in WHO 2025 evaluation. WHO recommends minimum $40\%$ specificity when fixed at $90\%$ sensitivity~\cite{who_cad_approval_2025}.
 \end{tablenotes}
 \end{threeparttable}
 \end{table*}
@@ -258,25 +253,28 @@ ConvNeXt-Tiny~\cite{liu2022convnext} & 0.9952 & 97.14 & 95.00 & 97.98 & 99.82 & 
 
 Classification results are reported in Table~\ref{tab:classification_results}.
 
-\textbf{The smallest model on parameters is among the largest on compute, so no single model is lightest on both axes.} The top five models by accuracy (LightTBNet, FlipR, EfficientNet-B0, MobileNetV3-Large, Drax-MobileNetV3-Large) differ by within $\pm 1\%$ on accuracy and F1. LightTBNet uses the fewest parameters ($1.3$M), but its high-resolution residual design costs $14.1$G MACs, more than every model except the three largest (ConvNeXt-Tiny, ResNet-50, and DenseNet-121) and nearly double FlipR. FlipR is the next smallest at $2.8$M ($4.0$ to $4.8$M for the other three), consistent with the SymFormer~\cite{liu2023tbx11k_pami} observation that bilateral asymmetry is a strong indicator of TB. Its parameter savings come from removing the parameter-heavy final stage of ResNet-18, which runs at low resolution and so contributes little compute. FlipR roughly halves LightTBNet's compute at $7.4$G but still exceeds the depthwise-separable backbones (MobileNetV3-Large $1.2$G, Drax-MobileNetV3-Large $1.3$G, EfficientNet-B0 $2.1$G), which keep both parameters and compute low. Parameter count measures the storage and memory footprint, while MACs measure compute, and the two favor different models, so a model that minimizes parameters alone can still carry a heavy compute cost.
+\textbf{No single model is lightest on both storage and compute.} Lighter models show a trade-off between storage use through params and computational cost through MACs. LightTBNet has the fewest parameters ($1.3$M) at the cost of higher MACs ($14.1$G), and models with MobileNet backbones have the fewest MACs ($1.2-1.3$G) at the cost of higher parameters ($4.2-4.8$M). Hence, the model choice depends on whether storage or compute is the tighter constraint in deployment.
 
-\textbf{All models exceed WHO triage targets on this test set, but not under the WHO 2025 evaluation protocol.}
-Sensitivity ranges from $92.50$ to $96.67\%$, above the $90\%$ sensitivity target, and specificity ranges from $97.98$ to $99.82\%$, above the $70\%$ specificity target of the WHO target product profile~\cite{who_screening_2021}. Sensitivity is more clinically important than specificity in screening, because a missed TB case risks untreated transmission while a false positive triggers only unnecessary confirmatory testing. MobileNetV3-Large achieves the highest sensitivity, missing only $3.3\%$ of TB cases. These figures are not directly comparable to the WHO 2025 evaluation of approved products~\cite{who_cad_approval_2025}, for two reasons. First, the operating point differs: we report argmax sensitivity and specificity, whereas the WHO 2025 protocol fixes sensitivity at $90\%$ and reports specificity there (with a clinical cutoff near $40\%$, not $70\%$) alongside a partial AUC over the $40$ to $60\%$ specificity range. Second, the test set differs in difficulty: although TBX11K shares the WHO microbiological reference standard, it is curated, single-source, and class-balanced, whereas the WHO libraries aggregate multiple regions and sources, and approved products reach only $26$ to $56\%$ specificity at $90\%$ sensitivity on them. Restated under the WHO 2025 protocol on this test set, all ten models saturate these indices, with specificity at $90\%$ sensitivity between $99.47$ and $100.00\%$ (Spec@90sens column, Table~\ref{tab:classification_results}) and a partial AUC of $1.00$ over the $40$ to $60\%$ specificity band. Every model reaches $100\%$ sensitivity at a specificity of $80\%$ or higher, well above the $40$ to $60\%$ band at which WHO scores approved products, so the partial AUC is pinned at $1.00$. This saturation reflects the easier curated test set rather than a genuine pass of the WHO bars, and reporting these metrics on a comparable multi-region library remains future work.
+\textbf{Bilateral asymmetry is a strong indicator of TB.}
+FlipR is the second smallest model by parameters ($2.8$M) and achieves performance within $1\%$ of the top four baselines (LightTBNet, EfficientNet-B0, MobileNetV3-Large, Drax-MobileNetV3-Large) in both accuracy and F1. FlipR's performance despite lighter parameters is consistent with the SymFormer~\cite{liu2023tbx11k_pami} observation that bilateral asymmetry is a strong indicator of TB. Its parameter savings come from removing the parameter-heavy final stage of ResNet-18, which runs at low resolution and thus contributes little compute. FlipR roughly halves LightTBNet's compute ($7.4$G) but still exceeds the MobileNet backbones (MobileNetV3-Large $1.2$G, Drax-MobileNetV3-Large $1.3$G).
+
+\textbf{All models exceed WHO 2025 TB CAD targets on the TBX11K test set, but likely reflects lower task difficulty compared to the WHO test set.}
+In the 2025 WHO TB CAD evaluation, two conditions are evaluated: 1.) specificity must meet a minimum of $40\%$ when sensitivity is fixed to $90\%$, and 2.) partial AUC over the $40$ to $60\%$ specificity range is evaluated~\cite{who_cad_approval_2025}. All models exceed the minimum specificity target as shown in Table \ref{tab:classification_results} and achieve a perfect partial AUC of $1.00$ over the $40$ to $60\%$ specificity range. However, WHO selected $40\%$ specificity as this is close to expert radiologist performance on WHO's private test set, not on the TBX11K test set, hence results are indicative but not directly comparable. The WHO test set is presumed to be more difficult than the TBX11K test set. Although both are labelled based on microbiological reference standard, TBX11K is single-demographic and curated from facility screening CXRs, whereas the WHO test set is from multiple demographics with CXRs specifically from community screening. Because no known public TB dataset matches this, evaluating the classifiers on a comparable multi-demographic dataset against radiologist performance remains future work.
 
 \textbf{The high-specificity, lower-sensitivity profile is likely attributable to TBX11K rather than model architecture.}
-All models display high specificity and lower sensitivity, consistent with results from models in related literature trained on TBX11K. The TBX11K dataset is constructed to reward high specificity because the common failure mode on other TB datasets is over-predicting TB and achieving near-zero specificity~\cite{liu2023tbx11k_pami}.
+All models display high specificity and lower sensitivity, consistent with results from models in related literature trained on TBX11K. Sensitivity is more clinically important than specificity in screening, because a missed TB case risks untreated transmission while a false positive triggers only unnecessary confirmatory testing. The TBX11K dataset is constructed to reward high specificity because the common failure mode on other TB datasets is over-predicting TB and achieving near-zero specificity. This is consistent with the performance of other models on the TBX11K dataset~\cite{liu2023tbx11k_pami}.
 
 \textbf{Lightweight models are preferred for TB screening on both performance and deployment grounds.}
-The smaller models (LightTBNet, FlipR, EfficientNet-B0, MobileNetV3-Large, Drax-MobileNetV3-Large) match or exceed every larger model in accuracy and F1. Due to a modest TBX11K training set, a minority TB class, and no class-imbalance handling, larger networks appear to overfit the majority healthy and sick non-TB classes rather than learn discriminative TB features. TB screening also runs in resource-limited settings often without a dedicated GPU, where both the memory footprint set by parameter count and the inference latency set by MACs matter. No single model minimizes both. LightTBNet has the fewest parameters but a high MAC cost, FlipR is the most parameter-efficient model with moderate compute, and the depthwise-separable backbones have the fewest MACs, so the deployment choice depends on whether storage or compute is the tighter constraint on the target device.
+The smaller models (LightTBNet, FlipR, EfficientNet-B0, MobileNetV3-Large, Drax-MobileNetV3-Large) match or exceed every larger model in accuracy and F1. Due to a modest TBX11K training set, a minority TB class, and no class-imbalance handling, we hypothesize that this is because larger networks overfit the majority healthy and sick non-TB classes rather than learn discriminative TB features. Due to compute constraints in ACF, lightweight models are preferred for both performance and practical deployment.
 
-\subsection{External Validation}
+\subsection{Out-of-distribution Validation}
 \label{subsec:external_validation}
 
 \begin{table*}[!t]
 \renewcommand{\arraystretch}{1.2}
 \centering
 \begin{threeparttable}
-\caption{External Validation: Zero-Shot Transfer and No-Retraining Recovery (AUC$_{\text{TB}}$)}
+\caption{AUC$_{\text{TB}}$ of Models on Out-of-Distribution Datasets}
 \label{tab:external_validation}
 \small
 \begin{tabular}{@{}l c ccc ccc@{}}
@@ -301,26 +299,28 @@ Mean                   & 0.998 & 0.562 &                &       & 0.567 &       
 \end{tabular}
 \begin{tablenotes}[flushleft]
 \footnotesize
-\item Each trained classifier is evaluated, without retraining, on the Montgomery (138 images, 58 TB) and Shenzhen (662 images, 336 TB) sets~\cite{jaeger2014datasets}, scoring TB triage as binary with $P(\text{TB})$ as the positive score and healthy and sick non-TB pooled as negative. \textbf{In-dist} repeats the within-TBX11K AUC$_{\text{TB}}$ from Table~\ref{tab:classification_results}. \textbf{Zero-shot} applies the model as trained. \textbf{AdaBN} recomputes batch-normalization statistics on the unlabeled target images and is not applicable to ConvNeXt-Tiny, which uses layer normalization rather than batch normalization. \textbf{Crop} restricts the input to the segmented lung field. Bold marks the best correction per model and site.
+\item Each trained classifier is evaluated, without retraining, on the Montgomery and Shenzhen sets~\cite{jaeger2014datasets}, scoring TB triage as binary with $P(\text{TB})$ as the positive score and healthy and sick non-TB pooled as negative. \textbf{In-dist} is the within-TBX11K AUC$_{\text{TB}}$ from Table~\ref{tab:classification_results}. \textbf{Zero-shot} applies the model as trained. \textbf{AdaBN} recomputes batch-normalization statistics on the unlabeled target images. AdaBN is not applicable to ConvNeXt-Tiny, which uses layer normalization rather than batch normalization. \textbf{Crop} restricts the input to the segmented lung field. Bold marks the best correction (among zero-shot, AdaBN, and crop) per model and dataset.
 \end{tablenotes}
 \end{threeparttable}
 \end{table*}
 
-\textbf{Zero-shot transfer to unseen sources collapses from near-perfect to weak.}
-The results above are computed within TBX11K. To test transfer to other acquisition sites, we run each trained classifier, without retraining, on two independent public CXR sets from different countries and scanners: the Montgomery County set and the Shenzhen set~\cite{jaeger2014datasets}. Both are binary normal-versus-TB collections, so they probe the cross-source shift that community deployment faces. Scoring TB triage as binary with $P(\text{TB})$ as the positive score, mean AUC$_{\text{TB}}$ falls from $0.998$ within TBX11K to $0.564$ across the two external sets, with several models at or below chance (Table~\ref{tab:external_validation}). Figure~\ref{fig:ood_roc} shows this collapse for the deployed FlipR classifier. The saturated in-distribution figures therefore reflect a single curated source rather than transferable screening skill, and any claim of readiness is bounded to the TBX11K distribution.
+To test out-of-distribution performance, we run each classifier, without retraining, on twos public CXR sets from different countries and scanners: the Montgomery County set (138 images, 58 TB) and the Shenzhen set (662 images, 336 TB)~\cite{jaeger2014datasets}. Results are reported in Table~\ref{tab:external_validation}.
+
+\textbf{Zero-shot performance on out-of-distribution data collapses from near-perfect to weak.}
+Both Montgomery and Shenzhen datasets are binary classification tasks, hence performance is evaluated with no TB and sick non-TB labels from TBX11K as the negative class and TB as the positive class. Mean AUC$_{\text{TB}}$ for all models falls from $0.998$ within TBX11K to $0.564$ across the two external sets, with several models at or below chance. Figure~\ref{fig:ood_roc} shows this collapse for the deployed FlipR classifier. The saturated in-distribution figures therefore reflect a single curated source rather than transferable screening skill. Models should be trained on a more diverse dataset in future work and calibrated per community site as per WHO guidance~\cite{who_cad_approval_2025}.
 
 \begin{figure}[!t]
     \centering
     \includegraphics[width=\linewidth]{../figures/classifier_ood_roc/classifier_ood_roc.pdf}
-    \caption{Binary TB ROC for the deployed FlipR classifier on the in-distribution TBX11K test set against the two unseen sites, Montgomery and Shenzhen. The in-distribution curve saturates in the top-left corner while both external curves fall toward the diagonal, the visual form of the AUC collapse reported in Table~\ref{tab:external_validation}. The dashed line marks the $90\%$ sensitivity operating point.}
+    \caption{Binary TB ROC for the FlipR classifier on the in-distribution TBX11K test set against the two unseen sites, Montgomery and Shenzhen. The in-distribution curve saturates in the top-left corner while both external curves fall toward the diagonal, showing the AUC collapse reported in Table~\ref{tab:external_validation}. The dashed line marks the $90\%$ sensitivity operating point from WHO 2025 targets (minimum $40\%$ specificity at $90\%$ sensitivty)~\cite{who_cad_approval_2025}.}
     \label{fig:ood_roc}
 \end{figure}
 
 \textbf{The two sites fail in opposite directions, tracking a measurable appearance shift.}
-On Montgomery the models lose sensitivity, defaulting most TB cases to normal, while on Shenzhen they lose specificity, over-flagging normal images. The two sets differ from the TBX11K training images in opposite ways in mean pixel intensity (Montgomery darker at $113$, Shenzhen brighter at $157$, against $123$ for TBX11K), with a Jensen-Shannon divergence of intensity histograms from the training set of $0.30$ and $0.29$ respectively (Figure~\ref{fig:domain_gap}). Because the failure direction follows this shift, the collapse is a covariate shift in image appearance rather than a labeling artifact.
+On Montgomery the models lose sensitivity, under-flagging TB images, while on Shenzhen models lose specificity, over-flagging normal images. The two sets differ from the TBX11K training images in opposite ways in mean pixel intensity (Montgomery darker at $113$, Shenzhen brighter at $157$, against $123$ for TBX11K), with a Jensen-Shannon divergence of intensity histograms from the training set of $0.30$ and $0.29$ respectively (Figure~\ref{fig:domain_gap}). Because the direction of failure on each set is consistent with this, the collapse is likely due to a shift in image appearance rather than an artifact of adapting the three-class model to binary.
 
-\textbf{Two label-free, retraining-free adjustments recover much of the gap, and they are complementary.}
-Real deployment can adapt to a site without relabeling, so we test two standard corrections that use only the unlabeled target images and leave all learned weights fixed. Adaptive batch normalization (AdaBN) recomputes each batch-normalization layer's running statistics on the target images~\cite{li2018adabn}. Lung-field cropping restricts the input to the lungs using an off-the-shelf segmentation model~\cite{cohen2022torchxrayvision}, removing burned-in text, borders, and field-of-view differences that are known cross-dataset shortcuts~\cite{zech2018shortcut}. The two corrections address different shift components. AdaBN recovers Montgomery, the intensity-shifted set, raising MobileNetV3-Large from $0.426$ to $0.589$ and Drax-MobileNetV3-Large from $0.571$ to $0.725$, whereas cropping recovers Shenzhen, the framing-shifted set, raising ResNet-50 from $0.637$ to $0.785$ and DraxNet from $0.604$ to $0.754$. Neither helps both sites, consistent with each addressing a distinct cause. Across the ten models with adaptation runs, applying the better correction per site raises their mean AUC$_{\text{TB}}$ from $0.544$ to $0.643$, with the strongest models reaching $0.72$ to $0.79$. Renormalizing the score over the healthy and TB classes alone, the correct binary projection of the three-class head, adds a further $0.03$ on average. These figures remain below the in-distribution values and below the WHO operating bars, so they do not establish readiness. They show instead that most of the apparent collapse is a correctable site-calibration effect rather than a loss of learned TB features.
+\textbf{Two corrections recover model performance without retraining.}
+Real ACF CAD deployment should adapt to a new community site without relabeling, so we test two standard corrections that use only the unlabeled target images and leave all learned weights fixed. Adaptive batch normalization (AdaBN) recomputes each batch-normalization layer's running statistics on the target images~\cite{li2018adabn}. Lung-field cropping restricts the input to the lungs using an off-the-shelf segmentation model~\cite{cohen2022torchxrayvision}, removing burned-in text, borders, and field-of-view differences that are known cross-dataset shortcuts~\cite{zech2018shortcut}. The two corrections address different shift components. AdaBN recovers Montgomery, the intensity-shifted set, raising MobileNetV3-Large from $0.426$ to $0.589$ and Drax-MobileNetV3-Large from $0.571$ to $0.725$, whereas cropping recovers Shenzhen, the framing-shifted set, raising ResNet-50 from $0.637$ to $0.785$ and DraxNet from $0.604$ to $0.754$. Neither correct helps both datasets, consistent with each addressing a distinct difference in each dataset from training data. Across the ten models with adaptation runs, applying the better correction per site raises their mean AUC$_{\text{TB}}$ from $0.544$ to $0.643$, with the strongest models reaching $0.72$ to $0.79$. However, these figures remain below the in-distribution values and below the WHO operating targets, and thus do not establish deployment readiness. The results show instead that performance collapse is likely due to need for site calibration, which is correctable and consistent with WHO calibration guidance~\cite{who_cad_approval_2025}, rather than a loss of learned TB features.
 
 % ============================================================
 % TUBERCULOSIS LESION DETECTION
@@ -328,41 +328,9 @@ Real deployment can adapt to a site without relabeling, so we test two standard 
 \section{Tuberculosis Lesion Detection}
 \label{sec:tb_localization}
 
-\begin{table*}[!t]
-\renewcommand{\arraystretch}{1.2}
-\centering
-\begin{threeparttable}
-\caption{Tuberculosis Lesion Detection Results}
-\label{tab:detection_results}
-\small
-\begin{tabular}{@{}l cc cc r r@{}}
-\toprule
-\multirow{2}{*}{\textbf{Model}} & \multicolumn{2}{c}{\textbf{Active TB}} & \multicolumn{2}{c}{\textbf{Latent TB}} & \multirow{2}{*}{\textbf{Params}} & \multirow{2}{*}{\textbf{MACs}} \\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}
- & \textbf{$\mathrm{mAP}_{50}$} & \textbf{$\mathrm{mAP}_{50\text{-}95}$} & \textbf{$\mathrm{mAP}_{50}$} & \textbf{$\mathrm{mAP}_{50\text{-}95}$} & & \\
-\midrule
-YOLO26~\cite{yolo26} & 0.4511 & 0.2110 & 0.1070 & 0.0410 & 2.6M & 0.5G \\
-YOLO11n~\cite{yolo11} & 0.5434 & 0.2446 & 0.1166 & 0.0435 & 2.6M & 0.5G \\
-YOLOv8n~\cite{yolov8} & 0.5563 & 0.2582 & \textbf{0.1175} & \textbf{0.0444} & 3.2M & 0.7G \\
-YOLO26 + DraxNet & \textbf{0.5865} & \textbf{0.2748} & 0.1017 & 0.0310 & 19.7M & 3.2G \\
-\bottomrule
-\end{tabular}
-\begin{tablenotes}[flushleft]
-\footnotesize
-\item MACs is the number of multiply-accumulate operations for one $256\times256$ forward pass at the detection training resolution, and FLOPs are twice this.
-\end{tablenotes}
-\end{threeparttable}
-\end{table*}
-
-We frame TB lesion detection as an object detection task: the module localizes each TB region on the radiograph as a bounding box and classifies it, supplying the region-level evidence that the report generation module later renders as text.
+The object detection module localizes each abnormality on the CXR as a bounding box and classifies each abnormality as either an active TB or latent TB lesion.
 
 \subsection{Dataset}
-
-Object detection uses the TBX11K bounding-box annotations, with each region labeled active TB or latent TB. Dataset composition is shown in Table \ref{tab:localization_composition}.
-
-Active TB denotes ongoing, transmissible infection requiring treatment. Latent TB denotes prior, inactive infection that is not contagious but may reactivate. As Figure~\ref{fig:pipeline} shows, active TB is more visually salient and latent TB is more subtle. A CXR with an image-level label of TB may contain bounding box labels of only active-TB lesions ($630$ images), only latent-TB lesions ($139$ images), or both ($30$ images). This composition is consistent with real-world conditions~\cite{liu2020tbx11k}.
-
-Differentiation between active and latent TB is relatively understudied in TB CAD. In routine reporting, a radiologist may not always state whether a lesion is suspected as active or latent TB explicitly, instead inferring it from radiographic pattern, with consolidation and cavitation suggesting active disease and fibrotic linear opacities suggesting healed disease, alongside clinical and laboratory correlation~\cite{burrill2007tb_radiology}. Current literature understudies whether existing commercial CAD systems can differentiate latent from active TB~\cite{stoptb_cad_guide}.
 
 \begin{table}[!ht]
 \renewcommand{\arraystretch}{1.2}
@@ -383,10 +351,16 @@ Total boxes & 902 & 309 & 1,211 \\
 \end{tabularx}
 \begin{tablenotes}[flushleft]
 \footnotesize
-\item Counts are individual bounding boxes, not images. The 799 TB images (599 train, 200 val) contain 1,211 boxes, because one image may hold several regions.
+\item Counts of bounding boxes. The 799 TBX11K TB images (599 train, 200 val) contain 1,211 boxes because one image may hold several boxes.
 \end{tablenotes}
 \end{threeparttable}
 \end{table}
+
+Object detection uses the TBX11K bounding-box annotations, with each region labeled active TB or latent TB. Dataset composition is shown in Table \ref{tab:localization_composition}.
+
+Active TB denotes ongoing, transmissible infection requiring treatment. Latent TB denotes prior, inactive infection that is not contagious but may reactivate. As Figure~\ref{fig:pipeline} shows, active TB is more visually salient and latent TB is more subtle. A CXR with an image-level label of TB may contain bounding box labels of only active-TB lesions ($630$ images), only latent-TB lesions ($139$ images), or both ($30$ images). This composition is consistent with real-world conditions~\cite{liu2020tbx11k}.
+
+Differentiation between active and latent TB is relatively understudied in TB CAD. In routine reporting, a radiologist may not always state whether a lesion is suspected as active or latent TB explicitly, instead inferring it from radiographic pattern, with consolidation and cavitation suggesting active disease and fibrotic linear opacities suggesting healed disease, alongside clinical and laboratory correlation~\cite{burrill2007tb_radiology}. Current literature understudies whether existing commercial CAD systems can differentiate latent from active TB~\cite{stoptb_cad_guide}.
 
 \subsection{Model Architecture}
 
@@ -397,6 +371,32 @@ We evaluate four lightweight detectors at $256$px input: base YOLO26-n~\cite{yol
 Object detection follows the classification setup in training all detectors from random initialization for $100$ epochs at batch size $16$, but uses the Ultralytics default detection optimizer (auto-selected, base learning rate $10^{-2}$) rather than the Adam optimizer at $10^{-3}$ used for classification. As in classification, the best checkpoint (selected by mAP) is retained and used for evaluation.
 
 \subsection{Results}
+
+\begin{table*}[!t]
+\renewcommand{\arraystretch}{1.2}
+\centering
+\begin{threeparttable}
+\caption{Tuberculosis Lesion Detection Results}
+\label{tab:detection_results}
+\small
+\begin{tabular}{@{}l cc cc r r@{}}
+\toprule
+\multirow{2}{*}{\textbf{Model}} & \multicolumn{2}{c}{\textbf{Active TB}} & \multicolumn{2}{c}{\textbf{Latent TB}} & \multirow{2}{*}{\textbf{Params}} & \multirow{2}{*}{\textbf{MACs}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+ & \textbf{$\mathrm{mAP}_{50}$} & \textbf{$\mathrm{mAP}_{50\text{-}95}$} & \textbf{$\mathrm{mAP}_{50}$} & \textbf{$\mathrm{mAP}_{50\text{-}95}$} & & \\
+\midrule
+YOLO26~\cite{yolo26} & 0.4511 & 0.2110 & 0.1070 & 0.0410 & \textbf{2.6M} & \textbf{0.5G} \\
+YOLO11n~\cite{yolo11} & 0.5434 & 0.2446 & 0.1166 & 0.0435 & \textbf{2.6M} & \textbf{0.5G} \\
+YOLOv8n~\cite{yolov8} & 0.5563 & 0.2582 & \textbf{0.1175} & \textbf{0.0444} & 3.2M & 0.7G \\
+YOLO26 + DraxNet & \textbf{0.5865} & \textbf{0.2748} & 0.1017 & 0.0310 & 19.7M & 3.2G \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}[flushleft]
+\footnotesize
+\item MACs is the number of multiply-accumulate operations for one $256\times256$ forward pass at the detection training resolution, and FLOPs are twice this.
+\end{tablenotes}
+\end{threeparttable}
+\end{table*}
 
 Detection results are reported in Table~\ref{tab:detection_results}. The WHO 2025 operating-point protocol scores a binary triage probability and has no localization analogue, so detection is evaluated with mean average precision (mAP), the standard localization metric, rather than the WHO indices reported for the classifier in Table~\ref{tab:classification_results}.
 
@@ -425,7 +425,7 @@ Precision stays high while recall lags well behind for every detector, so the de
 \section{Report Generation}
 \label{sec:explanation}
 
-The report generation module turns the detector's output into a structured radiology-style report a reader can act on without interpreting a boxed region or heatmap. Example outputs are shown in Figures~\ref{fig:pipeline} and~\ref{fig:explanation_gallery}.
+The report generation module turns the detector's output into a structured radiology-style report a reader can act on without interpreting a boxed region or heatmap. That reader is a non-radiologist, in ACF often a radiographer, so the report is built around the triage and referral decision they make rather than a finding-level read. Example outputs are shown in Figures~\ref{fig:pipeline} and~\ref{fig:explanation_gallery}.
 
 \begin{figure*}[!t]
 \centering
@@ -448,15 +448,15 @@ All images are posteroanterior (PA) frontal scans. Hence, the standard radiologi
 
 Template-based report generation is a structured template over the closed schema. It renders the record as a short report in three labeled sections, mirroring the findings-to-impression structure of a radiology report~\cite{zhang2024llm_impressions}: a numbered \textsc{findings} list with one TB region per line including lesion type, model confidence band, and lesion zone, an \textsc{impression} stating the screening result in clinical wording, and a \textsc{recommendation} based on the predicted class, such as referral for bacteriological confirmation when TB is indicated.
 
-The report describes only the detected TB regions and does not assess specific radiographic findings or cardiac, pleural, and skeletal observations. Due to lack of data, this is reserved for future work.
+The report describes only the detected TB regions and does not name specific radiographic findings such as consolidation, cavitation, or fibrosis, nor cardiac, pleural, and skeletal observations. This reflects both the scarcity of finding-level TB annotations and the report's intended reader, for whom chest X-ray interpretation falls outside the scope of practice and whose task is triage and referral rather than diagnosis. Naming findings that require radiological training to interpret would not change that referral decision and could mislead, whereas the triage label, the region, and the active-versus-latent distinction that bears on referral urgency are what this reader can act on. Richer findings become useful when a radiologist or downstream clinician enters the loop, which, together with the annotation data they require, we leave to future work.
 
 We chose a template over a generative model after prototyping both. An instruction-tuned language-model report generator (Phi-3.5-mini-instruct~\cite{abdin2024phi3}, run image-blind on the same record) was prototyped alongside this work, but the target is a short, fixed-format report with one line per region, which a template reproduces exactly over the closed vocabulary. The template therefore matches the generative output on faithfulness, readability, and the ordering of findings while removing any possibility of hallucination and the model inference cost, an advantage in the resource-limited settings this pipeline targets. A generative model is needed only for future work when the detector reports a richer, open set of interacting findings.
 
-\subsection{Faithfulness by Construction}
+\subsection{Faithfulness by Design}
 
-By design, report generation is faithful by construction, defined as the generated text asserting nothing not present in the structured record. This follows the faithfulness-versus-factuality distinction drawn for abstractive summarization~\cite{maynez2020faithfulness} and data-to-text evaluation~\cite{dhingra2019parent}, under which a generation is faithful if every entity it states is supported by the source, independent of whether the source is itself correct.
+Report generation is faithful by design, meaning the generated text asserts nothing not present in the structured record. This is the faithfulness-versus-factuality distinction drawn for abstractive summarization~\cite{maynez2020faithfulness} and data-to-text evaluation~\cite{dhingra2019parent}, under which a generation is faithful if every entity it states is supported by the source, independent of whether the source is itself correct. Faithfulness here is the absence of extrinsic hallucination, content asserted in the report that the models did not produce, and it does not by itself imply factual correctness, which remains bounded by the accuracy of the upstream models.
 
-In previous experiments using Phi-3.5-mini-instruct for report generation, we evaluated the result for faithfulness with a deterministic verifier that parses a report for schema entities and flagging any the record does not contain: region type, location, or laterality absent from the record, a predicted label different from the record's, or an invented probability. The verifier follows an established approach in data-to-text generation, extracting the facts a generation asserts and checking them against the source records~\cite{wiseman2017challenges}, and relates to the slot-error and semantic-accuracy metrics from dialogue generation that count output content not licensed by the input meaning representation~\cite{wen2015sclstm, dusek2020semantic}. However, where those methods train an information-extraction or natural-language-inference model because the target text is open, the closed schema makes an exact deterministic match sufficient. Because the template renders deterministically over a validated closed schema, it cannot assert an entity absent from the record, so faithfulness holds by construction rather than as an empirical rate. The schema surface is small and closed, so the template cannot render an entity absent from the record: the two region types, three confidence bands, and nine zones, together with the empty-region case for each class, are covered by construction and checked by the report-generation tests. Since the generative approach does not provide additional benefit over the template, the generative model is dropped to avoid hallucination risk and reduce compute.
+In previous experiments using Phi-3.5-mini-instruct for report generation, we evaluated the result for faithfulness with a deterministic verifier that parses a report for schema entities and flagging any the record does not contain: region type, location, or laterality absent from the record, a predicted label different from the record's, or an invented probability. The verifier follows an established approach in data-to-text generation, extracting the facts a generation asserts and checking them against the source records~\cite{wiseman2017challenges}, and relates to the slot-error and semantic-accuracy metrics from dialogue generation that count output content not licensed by the input meaning representation~\cite{wen2015sclstm, dusek2020semantic}. However, where those methods train an information-extraction or natural-language-inference model because the target text is open, the closed schema makes an exact deterministic match sufficient. Because the template renders deterministically over a validated closed schema, it cannot assert an entity absent from the record, so faithfulness is a structural property of the template and schema rather than an empirical rate measured over outputs. The schema surface is small and closed, so the template cannot render an entity absent from the record: the two region types, three confidence bands, and nine zones, together with the empty-region case for each class, are exhaustively determined by the schema and exercised by representative report-generation tests. Since the generative approach does not provide additional benefit over the template, the generative model is dropped to avoid hallucination risk and reduce compute.
 
 % ============================================================
 % DISCUSSION
@@ -509,7 +509,7 @@ YOLO26 + DraxNet       & 39.7 & 420 & 152 & 727 \\
 
 Every classifier completes a forward pass in under $0.7$ seconds on a single thread and under $0.26$ seconds on six threads, and the whole inference process peaks below $0.82$ GB of memory, so the pipeline runs on a commodity laptop CPU without a GPU. The deployed configuration, FlipR followed by the YOLOv8n detector on a flagged image, runs in about $370$ ms on a single thread and $120$ ms on six threads. On-device latency tracks MACs rather than parameters. The depthwise-separable backbones are fastest, at about $90$ ms on a single thread for MobileNetV3-Large and Drax-MobileNetV3-Large, while FlipR carries few parameters but more compute and takes $244$ ms. LightTBNet makes the point sharply: despite the fewest parameters, its high-resolution design gives it the third-highest single-thread latency at $621$ ms. The FlipR gap narrows to $76$ against $56$ ms at six threads, because FlipR's standard convolutions parallelize across cores better than depthwise convolutions. On-disk size does follow parameter count, where LightTBNet is the smallest at $5.1$ MB and FlipR the next smallest. Peak memory, by contrast, tracks activation size rather than parameters: LightTBNet holds the fewest parameters yet the third-highest peak memory at $800$ MB, because its high-resolution feature maps dominate the footprint. On-disk size therefore follows parameter count, while latency follows MACs and peak memory follows activation resolution.
 
-The detectors show the same pattern. The stock nano detectors localize in $110$ to $124$ ms on a single thread, whereas the DraxNet-backboned variant is about four times slower at $420$ ms and seven times larger on disk, which reinforces the choice of a stock lightweight detector over the DraxNet backbone. Because latency and peak memory depend on the CPU, the framework, and the thread count, these figures establish feasibility on a commodity CPU rather than on a particular field device, and they are an internally controlled comparison on one host rather than a cross-paper benchmark. A constrained single-board or ARM device would be slower, so characterizing latency on the target deployment hardware remains future work.
+The detectors show the same pattern. The stock nano detectors localize in $110$ to $124$ ms on a single thread, whereas the DraxNet-backboned variant is about four times slower at $420$ ms and seven times larger on disk, which reinforces the choice of a stock lightweight detector over the DraxNet backbone. These detector latencies are measured at the benchmark's $512\times512$ input, above the $256\times256$ resolution at which the detectors train and deploy, so they are a conservative upper bound on the native-resolution cost. Because latency and peak memory depend on the CPU, the framework, and the thread count, these figures establish feasibility on a commodity CPU rather than on a particular field device, and they are an internally controlled comparison on one host rather than a cross-paper benchmark. A constrained single-board or ARM device would be slower, so characterizing latency on the target deployment hardware remains future work.
 
 \subsection{Cost}
 
@@ -519,13 +519,13 @@ measured latency, and we place it against published costs for commercial TB CAD
 rather than asserting our own figures for products whose prices are not public.
 
 The deployed configuration, FlipR followed by the YOLOv8n detector, completes a
-study in $369$ ms on a single thread (Table~\ref{tab:ondevice}), where the
+study in about $370$ ms on a single thread (Table~\ref{tab:ondevice}), where the
 detector runs only on a flagged image, so this is an upper bound. A screening
 program of $100{,}000$ studies per year therefore needs about $10$ CPU-hours of
 compute per year. At a commodity cloud CPU rate near $0.045$ USD per core-hour,
-that is under $0.50$ USD per year, and on a single $300$ USD offline mini-PC the
-same workload amortizes to about $110$ USD per year while leaving the device idle
-for most of the day. In community active case finding, where the team already
+that is under $0.50$ USD per year, and on a single $300$ USD offline mini-PC
+amortized over a three-year service life, the same workload comes to about $110$
+USD per year while leaving the device idle for most of the day. In community active case finding, where the team already
 runs CAD on a laptop it owns~\cite{stoptb_cad_guide}, the marginal cost of an
 additional study is effectively the electricity, because the pipeline carries no
 per-study license.
@@ -561,7 +561,7 @@ TB-specific samples are limited in public datasets. As of writing, TBX11K is the
 
 The TB data scarcity limits how representative the evaluation population is. TBX11K is drawn from a single country, from patients presenting for hospital chest examination, and records no HIV status or prior-TB history. The WHO 2025 evaluation instead spans multiple regions, weighted toward high-burden African and South-East Asian settings, and reports lower CAD accuracy among women, people living with HIV, and those with a history of TB~\cite{who_cad_approval_2025}. Reported performance here may therefore overstate what the pipeline would achieve in the higher-burden, HIV-prevalent populations that community active case finding targets. Section~\ref{subsec:external_validation} measures one facet of this gap directly: zero-shot transfer to two other-source sets drops mean AUC$_{\text{TB}}$ from $0.998$ to $0.564$, and although label-free site adaptation recovers part of it, the corrected scores stay below the in-distribution figures. Evaluation on higher-burden, HIV-prevalent populations remains future work.
 
-Although report generation is faithful by construction, faithfulness to the detector is not clinical correctness. A report that faithfully restates an incorrect detection is still wrong, and only reference-based or reader evaluation can report this. However, due to the lack of a TB-specific reference dataset, this is left to future work.
+Although report generation is faithful by design, faithfulness to the detector is not clinical correctness. A report that faithfully restates an incorrect detection is still wrong, and only reference-based or reader evaluation can report this. However, due to the lack of a TB-specific reference dataset, this is left to future work.
 
 The system's scope is limited to screening of non-pediatric patients because the radiographic presentation of pulmonary TB is age-dependent: adult reactivation tuberculosis appears in the upper lung zones, whereas pediatric primary tuberculosis appears in the lower lung zones. Hence, detection patterns learned from a predominantly adult distribution do not transfer to children. This is consistent with the WHO endorsement of CAD as a human-reader alternative only for patients aged 15 years and older~\cite{who_cad_policy_2021}. 
 
@@ -578,7 +578,7 @@ A reader study with radiologists and non-radiologist screeners is also recommend
 % ============================================================
 \section{Conclusion}
 
-TB CAD systems are highly accurate, however challenges remain in integration for use in community ACF with limited connectivity, compute, and with no radiologist present. This paper presented a lightweight TB screening pipeline for that setting. The contribution is the integrated system, not any single model: it pairs lightweight classification and detection with deterministic, faithful-by-construction natural-language report generation and runs offline on a commodity CPU, so a non-radiologist reader receives an actionable report rather than a score and an overlay. Among the classifiers, FlipR achieves similar accuracy and F1 to the strongest baselines with a parameter-efficient design and the best zero-shot transfer to unseen sites. For localization, a comparison of lightweight detectors covers both active and latent TB, the latter underdetected in prior work, and finds that the larger custom DraxNet backbone does not justify its cost, so the compact YOLOv8n detector is preferred for deployment, within a small margin of the best accuracy at a fraction of the footprint. Across all detectors, localization functions as a high-precision rule-in cue rather than a standalone detector. Report generation provides findings in natural language for interpretation of ACF field teams and radiographers for patient referral for presumptive TB. On a commodity laptop CPU, the deployed FlipR-and-YOLOv8n configuration completes a study in about 370 ms without a GPU, and a cost analysis shows that compute is not the cost driver for TB CAD: the pipeline carries no per-study license and adds effectively zero marginal cost per study, so its advantage over commercial systems is structural rather than a lower unit price. TB-specific samples were found to be highly limited in public datasets, which constrained the design and evaluation of components. Evaluation rests on a single curated public dataset and on commodity-CPU feasibility, so a full evaluation of deployment feasibility on field hardware, extended radiographic findings, and a reader study with radiologists and radiographers in the target populations is left to future work.
+TB CAD systems are highly accurate, however challenges remain in integrating them for community ACF with unreliable connectivity, limited compute, and no radiologist present. This paper presented a lightweight TB screening pipeline for that setting. The contribution is the integrated system, not any single model: it pairs lightweight classification and detection with deterministic, faithful-by-design natural-language report generation and runs offline on a commodity laptop CPU, so that instead of a probability score and a heatmap, a non-radiologist reader, in ACF often a radiographer, receives an actionable report built around the triage and referral decision they make rather than the finding-level interpretation a radiologist would perform. The deployed FlipR-and-YOLOv8n configuration completes a study in about 370 ms on this CPU without a GPU. A cost analysis shows that compute is not the cost driver for TB CAD: because the pipeline is open-source it carries no per-study license and adds effectively zero marginal cost per study, so its advantage over commercially available systems is structural rather than a lower unit price. For localization, a comparison of lightweight detectors covers both active and latent TB, the latter underdetected in prior work, and finds that the larger custom DraxNet backbone does not justify its cost, so the compact YOLOv8n detector is preferred for deployment, within a small margin of the best accuracy at a fraction of the footprint, and across all detectors localization functions as a high-precision rule-in cue rather than a standalone detector. Among the classifiers, FlipR achieves similar accuracy and F1 to the strongest baselines with a parameter-efficient design and the best zero-shot transfer to unseen sites. External validation is nonetheless sobering: zero-shot mean TB AUC falls from 0.998 to 0.564 across two unseen sites along a measured intensity shift, and label-free site adaptation recovers only part of the gap while staying below the in-distribution and WHO bars, so the single-source results overstate readiness for multi-site deployment. TB-specific samples were found to be highly limited in public datasets, which constrained the design and evaluation of components. Evaluation rests on a single curated public dataset and on commodity-CPU feasibility, so a full evaluation of deployment feasibility on field hardware, extended radiographic findings for a full radiologist report, and a reader study with radiologists and radiographers in the target populations is left to future work.
 
 % ============================================================
 % ACKNOWLEDGMENTS
@@ -887,6 +887,9 @@ Y.~Jo \textit{et al.}, ``Cost-effectiveness of computer-aided detection of chest
 
 \bibitem{garg2025qxr}
 T.~Garg \textit{et al.}, ``Cost and cost-effectiveness of community-based tuberculosis active case finding using artificial intelligence-based chest X-ray screening,'' \textit{PLOS Digital Health}, vol.~4, no.~6, e0000894, 2025, doi: 10.1371/journal.pdig.0000894.
+
+\bibitem{ganapthy2025tb_vlm}
+A.~Ganapthy, P.~Shastry, N.~Kumarasami, Anandakumar~D, Keerthana~R, Mounigasri~M, Varshinipriya~M, K.~P.~Venkatesh, B.~Subramanian, and K.~Sivasailam, ``Vision-language models for acute tuberculosis diagnosis: a multimodal approach combining imaging and clinical data,'' arXiv:2503.14538, 2025. [Online]. Available: \url{https://arxiv.org/abs/2503.14538}.
 
 \end{thebibliography}
 
