@@ -19,6 +19,7 @@
 \usepackage{orcidlink}
 \usepackage{threeparttable}
 \usepackage{dblfloatfix}
+\usepackage{float}
 
 % Relax float placement so wide (double-column) tables can sit near their text
 \setcounter{topnumber}{3}
@@ -593,7 +594,7 @@ The authors would like to thank the University Research Council (URC) of Ateneo 
 % ============================================================
 \section*{Declaration on Generative AI}
 
-Generative AI tools were used to assist in writing the manuscript and source code for the study. All generative AI outputs were reverified by the authors. The conception of the research, methodology, and conclusions are the work of the authors.
+Generative AI tools were used to assist in writing the manuscript and source code for the study. All outputs were reverified by the authors. The conception of the research, methodology, and conclusions are the work of the authors.
 
 % ============================================================
 % DATA AND CODE AVAILABILITY
@@ -609,7 +610,7 @@ The manuscript, data, and source code for this study is publicly available at \u
 \section{Architectures of Custom Models}
 \label{app:architectures}
 
-\begin{table}[!ht]
+\begin{table}[H]
 \renewcommand{\arraystretch}{1.2}
 \centering
 \begin{threeparttable}
@@ -633,7 +634,7 @@ Head (avg-pool, FC 256$\to$3) & 3 & 771 \\
 \end{threeparttable}
 \end{table}
 
-\begin{table}[!ht]
+\begin{table}[H]
 \renewcommand{\arraystretch}{1.2}
 \centering
 \begin{threeparttable}
@@ -657,7 +658,7 @@ Head (avg-pool, FC 512$\to$3) & 3 & 1,539 \\
 \end{threeparttable}
 \end{table}
 
-\begin{table}[!ht]
+\begin{table}[H]
 \renewcommand{\arraystretch}{1.2}
 \centering
 \begin{threeparttable}
@@ -681,10 +682,10 @@ Head (avg-pool, classifier 960$\to$1280$\to$3) & 3 & 1,233,923 \\
 \section{Domain Gap to the External Sites}
 \label{app:domain_gap}
 
-\begin{figure}[!ht]
+\begin{figure}[H]
     \centering
     \includegraphics[width=\linewidth]{../figures/domain_gap_hist.png}
-    \caption{Pixel-intensity distributions of the TBX11K training images and the two external sites. Montgomery is darker and Shenzhen brighter than the training set, the covariate shift in image appearance discussed in Section~\ref{subsec:external_validation} that tracks the direction of the zero-shot failure on each site.}
+    \caption{Pixel-intensity distributions of the datasets. Montgomery is darker and Shenzhen is brighter than the TBX11K training set.}
     \label{fig:domain_gap}
 \end{figure}
 
